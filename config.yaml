@@ -246,7 +246,7 @@ endpoints:
           - "compression_type"
 
   - id: "process_payment"
-    text: "process payment means paying something about business and paiement not send email"
+    text: "process payment"
     description: "Process a customer payment"
     parameters:
       - name: "amount"
