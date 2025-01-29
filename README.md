@@ -65,17 +65,6 @@ The matcher will:
 2. Compare it semantically with available endpoints
 3. Return the best matching endpoint with its parameters
 
-## Project Structure
-
-```
-src/
-  ├── main.rs
-  ├── models/
-  │   └── mod.rs
-  ├── call_ollama.rs
-  └── extract_matched_action.rs
-```
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details
