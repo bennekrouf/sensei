@@ -20,7 +20,7 @@ A Rust-based tool that uses Large Language Models to match user inputs with pred
 
 1. Clone the repository:
 ```bash
-git clone [your-repository-url]
+git clone git@github.com:bennekrouf/semantic.git
 cd semantic-endpoint-matcher
 ```
 
@@ -76,27 +76,6 @@ src/
   └── extract_matched_action.rs
 ```
 
-## Logging
-
-The application uses the `tracing` crate for logging. Logs include:
-- INFO level for main operations
-- DEBUG level for detailed matching process
-- ERROR level for matching failures
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details
-
-## Acknowledgments
-
-- Built with Rust 🦀
-- Uses Ollama for LLM integration
-- Inspired by semantic matching techniques
