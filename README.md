@@ -1,6 +1,6 @@
 # Semantic Endpoint Matcher
 
-A Rust-based tool that uses Large Language Models to match user inputs with predefined API endpoints based on semantic understanding.
+A Rust-based tool that uses LLM to match user inputs with predefined API endpoints based on semantic understanding.
 
 ## Features
 
@@ -8,20 +8,19 @@ A Rust-based tool that uses Large Language Models to match user inputs with pred
 - YAML-based configuration for endpoints
 - Robust error handling and logging using tracing
 - Support for complex endpoint matching with parameters
-- Substring matching fallback for reliable endpoint detection
 
 ## Prerequisites
 
 - Rust (latest stable version)
 - Ollama running locally with deepseek-r1:8b model
-- Cargo and its dependencies
+
 
 ## Installation
 
 1. Clone the repository:
 ```bash
 git clone git@github.com:bennekrouf/semantic.git
-cd semantic-endpoint-matcher
+cd semantic
 ```
 
 2. Build the project:
@@ -45,6 +44,7 @@ endpoints:
       - name: participants
         description: List of attendees
         required: true
+  - id: ....
 ```
 
 ## Usage
@@ -57,7 +57,7 @@ cargo run --release
 
 Example input:
 ```
-schedule a meeting tomorrow at 2pm for 1 hour with Salem Mejid to discuss project status
+schedule a meeting tomorrow at 2pm for 1 hour with Bill MacBride to discuss project status
 ```
 
 The matcher will:
