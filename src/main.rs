@@ -4,13 +4,13 @@ mod models;
 mod prompts;
 mod second_extract_matched_action;
 mod third_find_endpoint_by_substring;
-mod zero_generate_json;
+mod zero_sentence_to_json;
 
 use crate::first_find_closest_endpoint::find_closest_endpoint;
-use crate::zero_generate_json::generate_json;
 
 use models::ConfigFile;
 use std::error::Error;
+use zero_sentence_to_json::sentence_to_json;
 
 use tracing::{debug, error, info};
 
@@ -69,7 +69,7 @@ pub async fn example_usage_with_json() -> Result<(), Box<dyn Error>> {
 
         // First, generate JSON
         info!("Generating JSON for test case #{}: {}", i + 1, prompt);
-        match generate_json("llama2", prompt).await {
+        match sentence_to_json("llama2", prompt).await {
             Ok(json_result) => {
                 println!("\n✅ JSON Generation Success!");
                 println!("Generated JSON:");

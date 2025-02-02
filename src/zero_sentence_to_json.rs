@@ -3,12 +3,12 @@ use regex::Regex;
 use std::error::Error;
 use tracing::{debug, error, info};
 
-pub async fn generate_json(
+pub async fn sentence_to_json(
     model: &str,
     sentence: &str,
 ) -> Result<serde_json::Value, Box<dyn Error>> {
     let prompt_manager = PromptManager::new().await?;
-    let full_prompt = prompt_manager.format_generate_json(sentence);
+    let full_prompt = prompt_manager.format_sentence_to_json(sentence);
 
     let full_response_text = call_ollama(&model, &full_prompt).await?;
     debug!("Raw LLM response:\n{}", full_response_text);

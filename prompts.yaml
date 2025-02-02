@@ -25,7 +25,7 @@ prompts:
       Use the alternatives list to find matching fields.
       Return only the parameters that have matching input fields.
 
-  generate_json:
+  sentence_to_json:
     template: |
       Sentence: {sentence}
 
