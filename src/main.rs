@@ -45,9 +45,9 @@ pub async fn example_usage_with_json() -> Result<(), Box<dyn Error>> {
 
     // Define test prompts
     let prompts = vec![
-        //"schedule a meeting tomorrow at 2pm for 1 hour with Salem Mejid to discuss project status",
+        "schedule a meeting tomorrow at 2pm for 1 hour with Salem Mejid to discuss project status",
         //"send an email to John@gmail.com which title is new report and body is hello john here is the report",
-        //"create a ticket with high priority titled server down and description is production server not responding",
+        "create a ticket with high priority titled server down and description is production server not responding",
         //"analyze logs for auth-service from january 1st to today with error level",
         //"deploy application user-service version 2.1.0 to production with rollback to 2.0.9",
         "create monthly sales report in PDF format action",

@@ -9,7 +9,11 @@ prompts:
       2. Extracting key elements (who, what, when, where, why, how)
       3. Comparing these elements to the fundamental purpose of each action option
       4. Selecting the action that best captures the essential meaning and purpose
-      Only output the exact text of the single best matching action from the list, nothing else.
+
+      IMPORTANT: Output only the exact text of the single best matching action from the list.
+      DO NOT use any markdown formatting or code blocks.
+      DO NOT add any additional text or explanations.
+      DO NOT wrap the response in quotes or backticks.
 
   match_fields:
     template: |
@@ -40,16 +44,16 @@ prompts:
 
       Example input: 'Send email to Alice at alice@example.com'
       Example output:
-      {{
+      Raw JSON string: {
         "endpoints": [
-          {{
-            "description": "Send email",
-            "fields": {{
-              "recipient": "Alice",
-              "email": "alice@example.com"
-            }}
-          }}
+          {
+            "description": "Server Down",
+            "fields": {
+              "server": "production",
+              "not_responding": true
+            }
+          }
         ]
-      }}
+      }
 
       Now for your sentence: {sentence}

@@ -7,6 +7,7 @@ use crate::{
 use crate::models::ConfigFile;
 use std::error::Error;
 
+use crate::prompts::PromptManager;
 use tracing::{debug, error, info};
 
 pub async fn find_closest_endpoint(
@@ -17,24 +18,19 @@ pub async fn find_closest_endpoint(
     info!("Starting endpoint matching for input: {}", input_sentence);
     debug!("Available endpoints: {}", config.endpoints.len());
 
-    let prompt = format!(
-        r#"Given this reference sentence: '{}'
-Compare it to these possible actions and identify which one most closely matches the core intent and meaning of the reference sentence:
-{}
-Determine the closest match by:
-1. Identifying the main verb/action in the reference sentence
-2. Extracting key elements (who, what, when, where, why, how)
-3. Comparing these elements to the fundamental purpose of each action option
-4. Selecting the action that best captures the essential meaning and purpose
-Only output the exact text of the single best matching action from the list, nothing else."#,
-        input_sentence,
-        config
-            .endpoints
-            .iter()
-            .map(|e| format!("- {}", e.text))
-            .collect::<Vec<String>>()
-            .join("\n")
-    );
+    // Initialize the PromptManager
+    let prompt_manager = PromptManager::new().await?;
+
+    // Generate the actions list
+    let actions_list = config
+        .endpoints
+        .iter()
+        .map(|e| format!("- {}", e.text))
+        .collect::<Vec<String>>()
+        .join("\n");
+
+    // Get formatted prompt from PromptManager
+    let prompt = prompt_manager.format_find_endpoint(input_sentence, &actions_list);
 
     debug!("Generated prompt:\n{}", prompt);
 

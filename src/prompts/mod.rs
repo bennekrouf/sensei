@@ -1,7 +1,6 @@
 // src/prompts/mod.rs
 use serde::Deserialize;
 use std::error::Error;
-use tracing::{debug, info};
 
 #[derive(Debug, Deserialize)]
 pub struct PromptTemplate {
@@ -33,5 +32,10 @@ impl PromptManager {
         template
             .replace("{input_sentence}", input_sentence)
             .replace("{actions_list}", actions_list)
+    }
+
+    pub fn format_generate_json(&self, sentence: &str) -> String {
+        let template = self.get_prompt("generate_json").unwrap_or_default();
+        template.replace("{sentence}", sentence)
     }
 }

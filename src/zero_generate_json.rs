@@ -1,4 +1,4 @@
-use crate::call_ollama::call_ollama;
+use crate::{call_ollama::call_ollama, prompts::PromptManager};
 use regex::Regex;
 use std::error::Error;
 use tracing::{debug, error, info};
@@ -7,35 +7,8 @@ pub async fn generate_json(
     model: &str,
     sentence: &str,
 ) -> Result<serde_json::Value, Box<dyn Error>> {
-    let full_prompt = format!(
-        "Sentence: {}\n\n\
-        Task: Generate a precise, minimal JSON structure based strictly on the sentence.\n\n\
-        Rules:\n\
-        1. Create an 'endpoints' array with exactly the details from the sentence.\n\
-        2. Each endpoint must have:\n\
-           - Precise 'description' matching the sentence\n\
-           - 'fields' object where EACH key has its EXACT value from the sentence\n\
-        3. Do NOT invent additional endpoints or fields\n\
-        4. Generate only plain field with its value and not a value a field value as field and a boolean nested in\n\
-        5. Use the EXACT values found in the sentence for each field\n\
-        6. Output ONLY the valid JSON without ANY introduction sentence like here is the json\n\
-        7. Output ONLY the valid JSON without ANY explanation after outputing the json\n\n\
-        Example input: 'Send email to Alice at alice@example.com'\n\
-        Example output:\n\
-        {{\n\
-          \"endpoints\": [\n\
-            {{\n\
-              \"description\": \"Send email\",\n\
-              \"fields\": {{\n\
-                \"recipient\": \"Alice\",\n\
-                \"email\": \"alice@example.com\"\n\
-              }}\n\
-            }}\n\
-          ]\n\
-        }}\n\n\
-        Now for your sentence: {}",
-        sentence, sentence
-    );
+    let prompt_manager = PromptManager::new().await?;
+    let full_prompt = prompt_manager.format_generate_json(sentence);
 
     let full_response_text = call_ollama(&model, &full_prompt).await?;
     debug!("Raw LLM response:\n{}", full_response_text);

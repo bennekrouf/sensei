@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 
 pub async fn extract_matched_action(ollama_response: &str) -> Result<String, Box<dyn Error>> {
     debug!("Extracting matched action from response");
