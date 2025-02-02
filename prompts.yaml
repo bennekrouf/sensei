@@ -1,0 +1,55 @@
+prompts:
+  find_endpoint:
+    template: |
+      Given this reference sentence: '{input_sentence}'
+      Compare it to these possible actions and identify which one most closely matches the core intent and meaning of the reference sentence:
+      {actions_list}
+      Determine the closest match by:
+      1. Identifying the main verb/action in the reference sentence
+      2. Extracting key elements (who, what, when, where, why, how)
+      3. Comparing these elements to the fundamental purpose of each action option
+      4. Selecting the action that best captures the essential meaning and purpose
+      Only output the exact text of the single best matching action from the list, nothing else.
+
+  match_fields:
+    template: |
+      Map these input fields to endpoint parameters:
+      Input fields: {input_fields}
+      Available parameters:
+      {parameters}
+      Return only a JSON with parameter name as key and matched value as value.
+      Use the alternatives list to find matching fields.
+      Return only the parameters that have matching input fields.
+
+  generate_json:
+    template: |
+      Sentence: {sentence}
+
+      Task: Generate a precise, minimal JSON structure based strictly on the sentence.
+
+      Rules:
+      1. Create an 'endpoints' array with exactly the details from the sentence.
+      2. Each endpoint must have:
+         - Precise 'description' matching the sentence
+         - 'fields' object where EACH key has its EXACT value from the sentence
+      3. Do NOT invent additional endpoints or fields
+      4. Generate only plain field with its value and not a value a field value as field and a boolean nested in
+      5. Use the EXACT values found in the sentence for each field
+      6. Output ONLY the valid JSON without ANY introduction sentence like here is the json
+      7. Output ONLY the valid JSON without ANY explanation after outputing the json
+
+      Example input: 'Send email to Alice at alice@example.com'
+      Example output:
+      {{
+        "endpoints": [
+          {{
+            "description": "Send email",
+            "fields": {{
+              "recipient": "Alice",
+              "email": "alice@example.com"
+            }}
+          }}
+        ]
+      }}
+
+      Now for your sentence: {sentence}
