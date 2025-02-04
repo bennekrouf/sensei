@@ -1468,7 +1468,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "semantic_matcher"
+name = "semantic"
 version = "0.1.0"
 dependencies = [
  "grpc_logger",
