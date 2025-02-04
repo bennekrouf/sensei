@@ -12,3 +12,4 @@ serde_yaml = "0.9.34"
 tokio = { version = "1.43.0", features = ["full"] }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
+grpc_logger = { path = "../grpc-logger" }

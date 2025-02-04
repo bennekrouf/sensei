@@ -2,7 +2,7 @@ use std::error::Error;
 
 use tracing::{debug, error};
 
-pub async fn extract_matched_action(ollama_response: &str) -> Result<String, Box<dyn Error>> {
+pub async fn extract_matched_action(ollama_response: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
     debug!("Extracting matched action from response");
 
     // Get the last non-empty line from the response

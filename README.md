@@ -30,7 +30,7 @@ cargo build --release
 
 ## Configuration
 
-Create a `config.yaml` file in the project root with your endpoint definitions:
+Create a `endpoints.yaml` file in the project root with your endpoint definitions:
 
 ```yaml
 endpoints:

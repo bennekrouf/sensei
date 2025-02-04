@@ -14,7 +14,7 @@ pub async fn find_closest_endpoint(
     config: &ConfigFile,
     input_sentence: &str,
     model: &str,
-) -> Result<Endpoint, Box<dyn Error>> {
+) -> Result<Endpoint, Box<dyn Error + Send + Sync>> {
     info!("Starting endpoint matching for input: {}", input_sentence);
     debug!("Available endpoints: {}", config.endpoints.len());
 

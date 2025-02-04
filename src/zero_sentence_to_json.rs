@@ -6,7 +6,7 @@ use tracing::{debug, error, info};
 pub async fn sentence_to_json(
     model: &str,
     sentence: &str,
-) -> Result<serde_json::Value, Box<dyn Error>> {
+) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
     let prompt_manager = PromptManager::new().await?;
     let full_prompt = prompt_manager.format_sentence_to_json(sentence);
 

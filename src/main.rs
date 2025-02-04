@@ -5,144 +5,67 @@ mod prompts;
 mod second_extract_matched_action;
 mod third_find_endpoint_by_substring;
 mod zero_sentence_to_json;
-
-use crate::first_find_closest_endpoint::find_closest_endpoint;
-
-use models::ConfigFile;
+mod example_usage_with_json;
+use grpc_logger::{setup_logging, LoggingService};
 use std::error::Error;
-use zero_sentence_to_json::sentence_to_json;
-
-use tracing::{debug, error, info};
+use example_usage_with_json::example_usage_with_json;
+use tracing::info;
+use grpc_logger::config::LogOutput;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // Initialize tracing subscriber
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
-        .init();
+    // Initialize logging configuration
+    let config = grpc_logger::load_config("config.yaml")?;
+    let service = LoggingService::new();
 
-    info!("Starting application");
+    // Initialize the service
+    service.init(&config).await?;
 
-    //example_usage().await?;
-    example_usage_with_json().await?;
-    Ok(())
-}
+    // let service_clone = service.clone();
+    // let _guard = setup_logging(&config, Some(service_clone))?;
 
-pub async fn example_usage_with_json() -> Result<(), Box<dyn Error>> {
-    // Initialize tracing
-    info!("Starting example usage tests with JSON generation");
-
-    // Load configuration
-    info!("Loading configuration file");
-    let config_str = tokio::fs::read_to_string("config.yaml").await?;
-    debug!("Config file content length: {}", config_str.len());
-
-    let config: ConfigFile = serde_yaml::from_str(&config_str)?;
+    // Log server configuration
     info!(
-        "Configuration loaded with {} endpoints",
-        config.endpoints.len()
+        "Logger initialized with output: {:?}",
+        config.output
     );
-
-    // Define test prompts
-    let prompts = vec![
-        "schedule a meeting tomorrow at 2pm for 1 hour with Salem Mejid to discuss project status",
-        //"send an email to John@gmail.com which title is new report and body is hello john here is the report",
-        "create a ticket with high priority titled server down and description is production server not responding",
-        //"analyze logs for auth-service from january 1st to today with error level",
-        //"deploy application user-service version 2.1.0 to production with rollback to 2.0.9",
-        "create monthly sales report in PDF format action",
-        //"backup database users with full backup and high compression",
-        //"process payment of 500 USD from customer 12345 using credit card",
-    ];
-
-    // Print test header
-    println!("\n{}", "=".repeat(80));
-    println!("Starting JSON Generation and Endpoint Matching Tests");
-    println!("{}\n", "=".repeat(80));
-
-    // Process each prompt
-    for (i, prompt) in prompts.iter().enumerate() {
-        println!("\nTest Case #{}", i + 1);
-        println!("{}", "-".repeat(40));
-        println!("Original Input: {}", prompt);
-        println!("{}", "-".repeat(40));
-
-        // First, generate JSON
-        info!("Generating JSON for test case #{}: {}", i + 1, prompt);
-        match sentence_to_json("llama2", prompt).await {
-            Ok(json_result) => {
-                println!("\n✅ JSON Generation Success!");
-                println!("Generated JSON:");
-                println!("{}", serde_json::to_string_pretty(&json_result).unwrap());
-
-                // Then proceed with endpoint matching
-                info!("Processing endpoint matching for test case #{}", i + 1);
-                match find_closest_endpoint(&config, prompt, "deepseek-r1:8b").await {
-                    Ok(endpoint_result) => {
-                        println!("\n✅ Endpoint Matching Success!");
-                        println!("Matched Endpoint ID: {}", endpoint_result.id);
-                        println!("Description: {}", endpoint_result.description);
-
-                        // Print parameters
-                        if !endpoint_result.parameters.is_empty() {
-                            println!("\nRequired Parameters:");
-                            for param in endpoint_result.parameters.iter().filter(|p| p.required) {
-                                println!("  • {}: {}", param.name, param.description);
-
-                                // Try to find corresponding value in JSON
-                                if let Some(endpoints) = json_result.get("endpoints") {
-                                    if let Some(first_endpoint) =
-                                        endpoints.as_array().and_then(|arr| arr.first())
-                                    {
-                                        if let Some(fields) = first_endpoint.get("fields") {
-                                            if let Some(value) = fields.get(&param.name) {
-                                                println!("    ↳ Value from JSON: {}", value);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            if endpoint_result.parameters.iter().any(|p| !p.required) {
-                                println!("\nOptional Parameters:");
-                                for param in
-                                    endpoint_result.parameters.iter().filter(|p| !p.required)
-                                {
-                                    println!("  ○ {}: {}", param.name, param.description);
-                                }
-                            }
-                        } else {
-                            println!("\nNo parameters required for this endpoint.");
-                        }
-
-                        info!(
-                            "Successfully matched endpoint '{}' for test case #{}",
-                            endpoint_result.id,
-                            i + 1
-                        );
-                    }
-                    Err(e) => {
-                        println!("\n❌ Endpoint Matching Error:");
-                        println!("Failed to match endpoint: {}", e);
-                        error!("Failed to match endpoint for test case #{}: {}", i + 1, e);
-                    }
-                }
+    match &config.output {
+        LogOutput::File => {
+            info!(
+                "File logging enabled - path: {}, filename: {}", 
+                config.file_path.as_deref().unwrap_or("default"),
+                config.file_name.as_deref().unwrap_or("app.log")
+            );
+        },
+        LogOutput::Grpc => {
+            if let Some(grpc_config) = &config.grpc {
+                info!(
+                    "GRPC logging enabled - server running on {}:{}", 
+                    grpc_config.address,
+                    grpc_config.port
+                );
             }
-            Err(e) => {
-                println!("\n❌ JSON Generation Error:");
-                println!("Failed to generate JSON: {}", e);
-                error!("Failed to generate JSON for test case #{}: {}", i + 1, e);
-            }
+        },
+        LogOutput::Console => {
+            info!("Console logging enabled");
         }
+    }
+    info!("Log level set to: {}", config.level);
+    info!("Starting semantic application");
 
-        println!("\n{}", "=".repeat(80));
+    // Run the semantic application
+    tokio::spawn(async move {
+        if let Err(e) = example_usage_with_json().await {
+            info!("Error in semantic application: {:?}", e);
+        }
+    });
+
+    // Keep the main task running
+    loop {
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     }
 
-    // Print summary
-    println!("\nTest Summary");
-    println!("{}", "-".repeat(40));
-    println!("Total test cases: {}", prompts.len());
-    println!("\n");
-
+    #[allow(unreachable_code)]
     Ok(())
 }
+
