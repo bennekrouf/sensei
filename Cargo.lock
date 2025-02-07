@@ -445,9 +445,9 @@ checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
 
 [[package]]
 name = "grpc_logger"
-version = "0.2.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aaa7c69b68a6d03437bd26fd7ecbfea73e20734a513aa9da84fa3f14ad0768ae"
+checksum = "e56947823b6e331c022be3b809965a390c43ce8e627ff853fa0d375a14b63647"
 dependencies = [
  "chrono",
  "futures",
@@ -458,6 +458,7 @@ dependencies = [
  "tokio-stream",
  "tonic",
  "tonic-build",
+ "tonic-reflection",
  "tonic-web",
  "tower-http 0.6.2",
  "tracing",
@@ -1861,6 +1862,19 @@ dependencies = [
  "prost-types",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "tonic-reflection"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "878d81f52e7fcfd80026b7fdb6a9b578b3c3653ba987f87f0dce4b64043cba27"
+dependencies = [
+ "prost",
+ "prost-types",
+ "tokio",
+ "tokio-stream",
+ "tonic",
 ]
 
 [[package]]
