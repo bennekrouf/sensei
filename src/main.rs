@@ -6,38 +6,52 @@ mod prompts;
 mod second_extract_matched_action;
 mod third_find_endpoint_by_substring;
 mod zero_sentence_to_json;
+mod analyze_sentence;
+mod sentence_service;
 
 use example_usage_with_json::example_usage_with_json;
 use grpc_logger::LoggingService;
+use sentence_service::start_sentence_grpc_server;
 use std::error::Error;
-use tracing::info;
-
+use tracing::{error, info};
 use tokio::signal;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // Initialize logging configuration
     let config = grpc_logger::load_config("config.yaml")?;
     let service = LoggingService::new();
     service.init(&config).await?;
 
-    // Spawn the semantic application task
-    let semantic_task = tokio::spawn(async move {
-        if let Err(e) = example_usage_with_json().await {
-            info!("Error in semantic application: {:?}", e);
+    // Start the gRPC server
+    let grpc_server = tokio::spawn(async {
+        if let Err(e) = start_sentence_grpc_server().await {
+            error!("gRPC server error: {:?}", e);
         }
     });
+
+    // Example task (if needed)
+    // let example_task = tokio::spawn(async {
+    //     if let Err(e) = example_usage_with_json().await {
+    //         info!("Error in semantic application: {:?}", e);
+    //     }
+    // });
 
     // Wait for either CTRL-C or task completion
     tokio::select! {
         _ = signal::ctrl_c() => {
             info!("Received shutdown signal, initiating graceful shutdown...");
         }
-        result = semantic_task => {
+        result = grpc_server => {
             if let Err(e) = result {
-                info!("Semantic task error: {:?}", e);
+                error!("gRPC server task error: {:?}", e);
             }
         }
+        // result = example_task => {
+        //     if let Err(e) = result {
+        //         info!("Example task error: {:?}", e);
+        //     }
+        // }
     }
 
     info!("Server shutting down");

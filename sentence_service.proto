@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package sentence;
+
+// The sentence analysis service definition
+service SentenceService {
+  // Analyze a sentence and return the matching endpoint and parameters
+  rpc AnalyzeSentence (SentenceRequest) returns (SentenceResponse) {}
+}
+
+// The request message containing the sentence to analyze
+message SentenceRequest {
+  string sentence = 1;
+}
+
+// Parameter information
+message Parameter {
+  string name = 1;
+  string description = 2;
+  optional string value = 3;
+}
+
+// The response message containing the analysis results
+message SentenceResponse {
+  string endpoint_id = 1;
+  string endpoint_description = 2;
+  repeated Parameter parameters = 3;
+  string json_output = 4; // JSON string representation
+}
