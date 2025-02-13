@@ -18,17 +18,7 @@ use tokio::signal;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-// Set up client logging
-    // grpc_logger::setup_client_logging(&config)?;
-    // Initialize logging configuration
     let config = grpc_logger::load_config("config.yaml")?;
-    // let service = LoggingService::new();
-    // service.init(&config).await?;
-
-    // Set up the logging subscriber without creating a new server
-    // grpc_logger::setup_logging(&config, None)?;
-
-    // Set up client logging
     grpc_logger::setup_client_logging(&config).await?;
 
     // Start the gRPC server
@@ -37,6 +27,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             error!("gRPC server error: {:?}", e);
         }
     });
+
+    info!("Semantic server started");
 
     // Example task (if needed)
     // let example_task = tokio::spawn(async {

@@ -1,5 +1,5 @@
 output: grpc
-level: trace
+level: debug
 server_id: "semantic-service"  # Identifies this service in the logs
 grpc:
   # host: "127.0.0.1"
