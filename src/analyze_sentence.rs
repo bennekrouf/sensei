@@ -2,7 +2,7 @@ use crate::models::ConfigFile;
 use crate::zero_sentence_to_json::sentence_to_json;
 use crate::first_find_closest_endpoint::find_closest_endpoint;
 use std::error::Error;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 use serde_json::Value;
 
 pub struct AnalysisResult {
@@ -53,7 +53,7 @@ pub async fn analyze_sentence(sentence: &str) -> Result<AnalysisResult, Box<dyn 
         ));
     }
 
-    info!("Analysis completed successfully");
+    debug!("Analysis completed successfully");
     Ok(AnalysisResult {
         json_output: json_result,
         endpoint_id: endpoint_result.id,

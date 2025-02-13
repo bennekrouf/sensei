@@ -8,20 +8,28 @@ mod third_find_endpoint_by_substring;
 mod zero_sentence_to_json;
 mod analyze_sentence;
 mod sentence_service;
+mod grpc_server;
 
-use example_usage_with_json::example_usage_with_json;
-use grpc_logger::LoggingService;
-use sentence_service::start_sentence_grpc_server;
+// use example_usage_with_json::example_usage_with_json;
+use grpc_server::start_sentence_grpc_server;
 use std::error::Error;
 use tracing::{error, info};
 use tokio::signal;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+// Set up client logging
+    // grpc_logger::setup_client_logging(&config)?;
     // Initialize logging configuration
     let config = grpc_logger::load_config("config.yaml")?;
-    let service = LoggingService::new();
-    service.init(&config).await?;
+    // let service = LoggingService::new();
+    // service.init(&config).await?;
+
+    // Set up the logging subscriber without creating a new server
+    // grpc_logger::setup_logging(&config, None)?;
+
+    // Set up client logging
+    grpc_logger::setup_client_logging(&config).await?;
 
     // Start the gRPC server
     let grpc_server = tokio::spawn(async {

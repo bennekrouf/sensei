@@ -5,7 +5,7 @@ package sentence;
 // The sentence analysis service definition
 service SentenceService {
   // Analyze a sentence and return the matching endpoint and parameters
-  rpc AnalyzeSentence (SentenceRequest) returns (SentenceResponse) {}
+  rpc AnalyzeSentence (SentenceRequest) returns (stream SentenceResponse) {}
 }
 
 // The request message containing the sentence to analyze
