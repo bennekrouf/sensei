@@ -1,6 +1,7 @@
 output: grpc
 level: debug
 server_id: "semantic-service"  # Identifies this service in the logs
+client_id: "semantic-service"
 grpc:
   # host: "127.0.0.1"
   address: "127.0.0.1"

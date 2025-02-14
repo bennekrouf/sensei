@@ -15,11 +15,13 @@ use grpc_server::start_sentence_grpc_server;
 use std::error::Error;
 use tracing::{error, info};
 use tokio::signal;
+use grpc_logger::setup_logging;
+use grpc_logger::load_config;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let config = grpc_logger::load_config("config.yaml")?;
-    grpc_logger::setup_client_logging(&config).await?;
+    let config = load_config("config.yaml")?;
+    setup_logging(&config).await?;
 
     // Start the gRPC server
     let grpc_server = tokio::spawn(async {
