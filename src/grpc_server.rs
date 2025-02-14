@@ -10,8 +10,6 @@ pub async fn start_sentence_grpc_server() -> Result<(), Box<dyn std::error::Erro
     let addr = "0.0.0.0:50053".parse()?;
     info!("Starting sentence analysis gRPC server on {}", addr);
 
-    let sentence_service = SentenceAnalyzeService::default();
-
     let descriptor_set = include_bytes!(concat!(env!("OUT_DIR"), "/sentence_descriptor.bin"));
     let reflection_service = Builder::configure()
         .register_encoded_file_descriptor_set(descriptor_set)
@@ -24,6 +22,9 @@ pub async fn start_sentence_grpc_server() -> Result<(), Box<dyn std::error::Erro
         .allow_methods(Any)
         .expose_headers(Any);
 
+    tracing::info!("Starting semantic gRPC server on {}", addr);
+
+    let sentence_service = SentenceAnalyzeService::default();
     let service = SentenceServiceServer::new(sentence_service);
 
     match Server::builder()
@@ -37,7 +38,7 @@ pub async fn start_sentence_grpc_server() -> Result<(), Box<dyn std::error::Erro
         .add_service(reflection_service) // Add reflection service
         .serve_with_shutdown(addr, async {
             tokio::signal::ctrl_c().await.ok();
-            info!("Shutting down server...");
+            info!("Shutting down semantic server...");
         })
         .await
     {
