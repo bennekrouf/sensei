@@ -1,7 +1,7 @@
 use crate::first_find_closest_endpoint::find_closest_endpoint;
 use crate::models::ConfigFile;
-use std::error::Error;
 use crate::zero_sentence_to_json::sentence_to_json;
+use std::error::Error;
 use tracing::{debug, error, info};
 
 pub async fn example_usage_with_json() -> Result<(), Box<dyn Error>> {
@@ -32,38 +32,38 @@ pub async fn example_usage_with_json() -> Result<(), Box<dyn Error>> {
     ];
 
     // Print test header
-    println!("\n{}", "=".repeat(80));
-    println!("Starting JSON Generation and Endpoint Matching Tests");
-    println!("{}\n", "=".repeat(80));
+    info!("\n{}", "=".repeat(80));
+    info!("Starting JSON Generation and Endpoint Matching Tests");
+    info!("{}\n", "=".repeat(80));
 
     // Process each prompt
     for (i, prompt) in prompts.iter().enumerate() {
-        println!("\nTest Case #{}", i + 1);
-        println!("{}", "-".repeat(40));
-        println!("Original Input: {}", prompt);
-        println!("{}", "-".repeat(40));
+        info!("\nTest Case #{}", i + 1);
+        debug!("{}", "-".repeat(40));
+        debug!("Original Input: {}", prompt);
+        debug!("{}", "-".repeat(40));
 
         // First, generate JSON
         info!("Generating JSON for test case #{}: {}", i + 1, prompt);
         match sentence_to_json("llama2", prompt).await {
             Ok(json_result) => {
-                println!("\n✅ JSON Generation Success!");
-                println!("Generated JSON:");
-                println!("{}", serde_json::to_string_pretty(&json_result).unwrap());
+                info!("\n✅ JSON Generation Success!");
+                debug!("Generated JSON:");
+                debug!("{}", serde_json::to_string_pretty(&json_result).unwrap());
 
                 // Then proceed with endpoint matching
                 info!("Processing endpoint matching for test case #{}", i + 1);
                 match find_closest_endpoint(&config, prompt, "deepseek-r1:8b").await {
                     Ok(endpoint_result) => {
-                        println!("\n✅ Endpoint Matching Success!");
-                        println!("Matched Endpoint ID: {}", endpoint_result.id);
-                        println!("Description: {}", endpoint_result.description);
+                        info!("\n✅ Endpoint Matching Success!");
+                        info!("Matched Endpoint ID: {}", endpoint_result.id);
+                        debug!("Description: {}", endpoint_result.description);
 
                         // Print parameters
                         if !endpoint_result.parameters.is_empty() {
-                            println!("\nRequired Parameters:");
+                            debug!("\nRequired Parameters:");
                             for param in endpoint_result.parameters.iter().filter(|p| p.required) {
-                                println!("  • {}: {}", param.name, param.description);
+                                debug!("  • {}: {}", param.name, param.description);
 
                                 // Try to find corresponding value in JSON
                                 if let Some(endpoints) = json_result.get("endpoints") {
@@ -72,7 +72,7 @@ pub async fn example_usage_with_json() -> Result<(), Box<dyn Error>> {
                                     {
                                         if let Some(fields) = first_endpoint.get("fields") {
                                             if let Some(value) = fields.get(&param.name) {
-                                                println!("    ↳ Value from JSON: {}", value);
+                                                debug!("    ↳ Value from JSON: {}", value);
                                             }
                                         }
                                     }
@@ -80,15 +80,15 @@ pub async fn example_usage_with_json() -> Result<(), Box<dyn Error>> {
                             }
 
                             if endpoint_result.parameters.iter().any(|p| !p.required) {
-                                println!("\nOptional Parameters:");
+                                debug!("\nOptional Parameters:");
                                 for param in
                                     endpoint_result.parameters.iter().filter(|p| !p.required)
                                 {
-                                    println!("  ○ {}: {}", param.name, param.description);
+                                    debug!("  ○ {}: {}", param.name, param.description);
                                 }
                             }
                         } else {
-                            println!("\nNo parameters required for this endpoint.");
+                            debug!("\nNo parameters required for this endpoint.");
                         }
 
                         info!(
@@ -98,27 +98,27 @@ pub async fn example_usage_with_json() -> Result<(), Box<dyn Error>> {
                         );
                     }
                     Err(e) => {
-                        println!("\n❌ Endpoint Matching Error:");
-                        println!("Failed to match endpoint: {}", e);
+                        error!("\n❌ Endpoint Matching Error:");
+                        error!("Failed to match endpoint: {}", e);
                         error!("Failed to match endpoint for test case #{}: {}", i + 1, e);
                     }
                 }
             }
             Err(e) => {
-                println!("\n❌ JSON Generation Error:");
-                println!("Failed to generate JSON: {}", e);
+                error!("\n❌ JSON Generation Error:");
+                error!("Failed to generate JSON: {}", e);
                 error!("Failed to generate JSON for test case #{}: {}", i + 1, e);
             }
         }
 
-        println!("\n{}", "=".repeat(80));
+        info!("\n{}", "=".repeat(80));
     }
 
     // Print summary
-    println!("\nTest Summary");
-    println!("{}", "-".repeat(40));
-    println!("Total test cases: {}", prompts.len());
-    println!("\n");
+    info!("\nTest Summary");
+    debug!("{}", "-".repeat(40));
+    info!("Total test cases: {}", prompts.len());
+    info!("\n");
 
     Ok(())
 }

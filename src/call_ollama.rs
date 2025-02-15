@@ -4,7 +4,10 @@ use crate::models::OllamaResponse;
 use std::error::Error;
 use tracing::{debug, error, info};
 
-pub async fn call_ollama(model: &str, prompt: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+pub async fn call_ollama(
+    model: &str,
+    prompt: &str,
+) -> Result<String, Box<dyn Error + Send + Sync>> {
     debug!("Creating Ollama request for model: {}", model);
     let client = reqwest::Client::new();
     let request_body = GenerateRequest {
@@ -37,7 +40,7 @@ pub async fn call_ollama(model: &str, prompt: &str) -> Result<String, Box<dyn Er
         return Err("Empty response from Ollama".into());
     }
 
-    //debug!("Parsed response: '{}'", response_obj.response.trim());
+    debug!("Parsed response: '{}'", response_obj.response.trim());
 
     Ok(response_obj.response.trim().to_owned())
 }
