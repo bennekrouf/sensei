@@ -1,3 +1,5 @@
+pub mod config;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize)]
@@ -6,6 +8,8 @@ pub struct GenerateRequest {
     pub prompt: String,
     pub stream: bool,
     pub format: Option<String>,
+    pub temperature: f32,
+    pub max_tokens: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -18,11 +22,11 @@ pub struct Endpoint {
     pub id: String,
     pub text: String,
     pub description: String,
-    pub parameters: Vec<Parameter>,
+    pub parameters: Vec<EndpointParameter>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Parameter {
+pub struct EndpointParameter {
     pub name: String,
     pub description: String,
     pub required: bool,
@@ -32,4 +36,12 @@ pub struct Parameter {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConfigFile {
     pub endpoints: Vec<Endpoint>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Parameter {
+    pub name: String,
+    pub description: String,
+    pub value: Option<String>,
+    pub semantic_value: Option<String>,
 }

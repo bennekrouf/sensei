@@ -1,5 +1,5 @@
 [package]
-name = "semantic"
+name = "apicheck"
 version = "0.1.0"
 edition = "2021"
 
@@ -23,6 +23,7 @@ tracing-futures = "0.2.5"
 http = "1.2.0"
 tokio-stream = "0.1.17"
 futures = "0.3.31"
+clap = { version = "4.5.30", features = ["derive"] }
 
 [build-dependencies]
 tonic-build = "0.12.3"

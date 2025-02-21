@@ -1,41 +1,48 @@
-# Semantic Endpoint Matcher
+# APICheck
 
-A Rust-based tool that uses LLM to match user inputs with predefined API endpoints based on semantic understanding.
-
-## Features
-
-- Semantic matching using LLM (deepseek-r1:8b)
-- YAML-based configuration for endpoints
-- Robust error handling and logging using tracing
-- Support for complex endpoint matching with parameters
+A tool that uses LLM to match user inputs with predefined API endpoints based on semantic understanding.
 
 ## Prerequisites
 
 - Rust (latest stable version)
 - Ollama running locally with deepseek-r1:8b model
 
-
 ## Installation
 
-1. Clone the repository:
+1. Clone and build:
 ```bash
-git clone git@github.com:bennekrouf/semantic.git
-cd semantic
+git clone git@github.com:bennekrouf/apicheck.git
+cd apicheck
+cargo install --path .
 ```
 
-2. Build the project:
-```bash
-cargo build --release
-```
-
-For local testing generate certificates :
+2. For local testing generate certificates:
 ```bash
 openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes
 ```
 
+## Usage
+
+After installation, you can use `apicheck` in two ways:
+
+### CLI Mode
+```bash
+# Analyze a sentence directly
+apicheck "schedule a meeting tomorrow at 2pm with John"
+
+# Show help
+apicheck --help
+```
+
+### gRPC Server Mode
+```bash
+# Start the gRPC server (runs when no prompt is provided)
+apicheck
+```
+
 ## Configuration
 
-Create a `endpoints.yaml` file in the project root with your endpoint definitions:
+Create a `endpoints.yaml` file in your working directory with your endpoint definitions:
 
 ```yaml
 endpoints:
@@ -51,24 +58,6 @@ endpoints:
         required: true
   - id: ....
 ```
-
-## Usage
-
-Run the example usage to test endpoint matching:
-
-```bash
-cargo run --release
-```
-
-Example input:
-```
-schedule a meeting tomorrow at 2pm for 1 hour with Bill MacBride to discuss project status
-```
-
-The matcher will:
-1. Parse the input
-2. Compare it semantically with available endpoints
-3. Return the best matching endpoint with its parameters
 
 ## License
 

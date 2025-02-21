@@ -1,18 +1,18 @@
-use tonic::{Request, Response, Status};
-use tonic::metadata::MetadataMap;
-use futures::Stream;
-use tokio::sync::mpsc;
-use std::pin::Pin;
 use crate::analyze_sentence::analyze_sentence;
+use futures::Stream;
+use std::pin::Pin;
+use tokio::sync::mpsc;
+use tonic::metadata::MetadataMap;
+use tonic::{Request, Response, Status};
 
 pub mod sentence {
     tonic::include_proto!("sentence");
 }
 
-use tracing::Instrument;
 use sentence::sentence_service_server::SentenceService;
-use sentence::{SentenceRequest, SentenceResponse, Parameter};
+use sentence::{Parameter, SentenceRequest, SentenceResponse};
 use tonic::codegen::tokio_stream::wrappers::ReceiverStream;
+use tracing::Instrument;
 
 #[derive(Debug, Default)]
 pub struct SentenceAnalyzeService;
@@ -28,10 +28,10 @@ impl SentenceAnalyzeService {
     }
 }
 
-
 #[tonic::async_trait]
 impl SentenceService for SentenceAnalyzeService {
-    type AnalyzeSentenceStream = Pin<Box<dyn Stream<Item = Result<SentenceResponse, Status>> + Send>>;
+    type AnalyzeSentenceStream =
+        Pin<Box<dyn Stream<Item = Result<SentenceResponse, Status>> + Send>>;
 
     #[tracing::instrument(skip(self, request), fields(client_id))]
     async fn analyze_sentence(
@@ -50,12 +50,12 @@ impl SentenceService for SentenceAnalyzeService {
         // Debug logging for request details
         tracing::debug!(
             "Full request details: {:?}",
-            metadata.iter()
+            metadata
+                .iter()
                 .map(|item| match item {
-                    tonic::metadata::KeyAndValueRef::Ascii(k, v) => 
+                    tonic::metadata::KeyAndValueRef::Ascii(k, v) =>
                         (k.as_str(), v.to_str().unwrap_or("invalid")),
-                    tonic::metadata::KeyAndValueRef::Binary(k, _) => 
-                        (k.as_str(), "binary value")
+                    tonic::metadata::KeyAndValueRef::Binary(k, _) => (k.as_str(), "binary value"),
                 })
                 .collect::<Vec<_>>()
         );
@@ -64,9 +64,7 @@ impl SentenceService for SentenceAnalyzeService {
         let analyze_span = tracing::info_span!("analyze_sentence", client_id = %client_id);
 
         tokio::spawn(async move {
-            let result = analyze_sentence(&sentence)
-                .instrument(analyze_span)
-                .await;
+            let result = analyze_sentence(&sentence).instrument(analyze_span).await;
 
             match result {
                 Ok(result) => {
@@ -75,12 +73,14 @@ impl SentenceService for SentenceAnalyzeService {
                     let response = SentenceResponse {
                         endpoint_id: result.endpoint_id,
                         endpoint_description: result.endpoint_description,
-                        parameters: result.parameters
+                        parameters: result
+                            .parameters
                             .into_iter()
-                            .map(|(name, description, value)| Parameter {
-                                name,
-                                description,
-                                value,
+                            .map(|param| Parameter {
+                                name: param.name,
+                                description: param.description,
+                                value: param.value,
+                                semantic_value: param.semantic_value,
                             })
                             .collect(),
                         json_output: match serde_json::to_string(&result.json_output) {
@@ -110,7 +110,9 @@ impl SentenceService for SentenceAnalyzeService {
                         "Analysis failed"
                     );
 
-                    let _ = tx.send(Err(Status::internal(format!("Analysis failed: {}", e)))).await;
+                    let _ = tx
+                        .send(Err(Status::internal(format!("Analysis failed: {}", e))))
+                        .await;
                 }
             }
         });
@@ -118,4 +120,3 @@ impl SentenceService for SentenceAnalyzeService {
         Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
     }
 }
-

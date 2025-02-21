@@ -1,22 +1,25 @@
+use crate::models::config::load_models_config;
+use crate::models::ConfigFile;
 use crate::models::Endpoint;
+use crate::prompts::PromptManager;
 use crate::second_extract_matched_action::extract_matched_action;
 use crate::{
-    call_ollama::call_ollama, third_find_endpoint_by_substring::find_endpoint_by_substring,
+    call_ollama::call_ollama_with_config,
+    third_find_endpoint_by_substring::find_endpoint_by_substring,
 };
-
-use crate::models::ConfigFile;
 use std::error::Error;
-
-use crate::prompts::PromptManager;
 use tracing::{debug, error, info};
 
 pub async fn find_closest_endpoint(
     config: &ConfigFile,
     input_sentence: &str,
-    model: &str,
 ) -> Result<Endpoint, Box<dyn Error + Send + Sync>> {
     info!("Starting endpoint matching for input: {}", input_sentence);
     debug!("Available endpoints: {}", config.endpoints.len());
+
+    // Load model configuration
+    let models_config = load_models_config().await?;
+    let model_config = &models_config.find_endpoint;
 
     // Initialize the PromptManager
     let prompt_manager = PromptManager::new().await?;
@@ -31,12 +34,11 @@ pub async fn find_closest_endpoint(
 
     // Get formatted prompt from PromptManager
     let prompt = prompt_manager.format_find_endpoint(input_sentence, &actions_list);
-
     debug!("Generated prompt:\n{}", prompt);
 
-    // Call Ollama
-    info!("Calling Ollama with model: {}", model);
-    let raw_response = call_ollama(model, &prompt).await?;
+    // Call Ollama with configuration
+    info!("Calling Ollama with model: {}", model_config.name);
+    let raw_response = call_ollama_with_config(model_config, &prompt).await?;
     debug!("Raw Ollama response: '{}'", raw_response);
 
     let cleaned_response = extract_matched_action(&raw_response).await?;

@@ -1,21 +1,26 @@
-use crate::models::ConfigFile;
-use crate::zero_sentence_to_json::sentence_to_json;
 use crate::first_find_closest_endpoint::find_closest_endpoint;
+use crate::fourth_match_fields::match_fields_semantic;
+use crate::models::config::load_models_config;
+use crate::models::ConfigFile;
+use crate::models::Parameter as ServiceParameter;
+use crate::zero_sentence_to_json::sentence_to_json;
+use serde_json::Value;
 use std::error::Error;
 use tracing::{debug, info};
-use serde_json::Value;
 
 pub struct AnalysisResult {
     pub json_output: Value,
     pub endpoint_id: String,
     pub endpoint_description: String,
-    pub parameters: Vec<(String, String, Option<String>)>, // (name, description, value)
+    pub parameters: Vec<ServiceParameter>,
 }
 
-pub async fn analyze_sentence(sentence: &str) -> Result<AnalysisResult, Box<dyn Error + Send + Sync>> {
+pub async fn analyze_sentence(
+    sentence: &str,
+) -> Result<AnalysisResult, Box<dyn Error + Send + Sync>> {
     info!("Starting sentence analysis for: {}", sentence);
 
-    // Load configuration
+    // Load configurations
     let config_str = tokio::fs::read_to_string("endpoints.yaml").await?;
     debug!("Config file content length: {}", config_str.len());
 
@@ -25,32 +30,47 @@ pub async fn analyze_sentence(sentence: &str) -> Result<AnalysisResult, Box<dyn 
         config.endpoints.len()
     );
 
+    // Load model configurations
+    let models_config = load_models_config().await?;
+    debug!("Model configurations loaded successfully");
+
     // Generate JSON from sentence
     info!("Generating JSON from sentence");
-    let json_result = sentence_to_json("llama2", sentence).await?;
+    let json_result = sentence_to_json(sentence).await?;
     debug!("JSON generation successful");
 
     // Find closest matching endpoint
     info!("Finding closest matching endpoint");
-    let endpoint_result = find_closest_endpoint(&config, sentence, "deepseek-r1:8b").await?;
+    let endpoint_result = find_closest_endpoint(&config, sentence).await?;
     debug!("Endpoint matching successful: {}", endpoint_result.id);
 
-    // Extract parameter values from JSON
+    // Perform both exact and semantic matching
     let mut parameters = Vec::new();
+
+    // Exact matching
     for param in &endpoint_result.parameters {
-        let mut value = None;
+        let mut exact_value = None;
         if let Some(endpoints) = json_result.get("endpoints") {
             if let Some(first_endpoint) = endpoints.as_array().and_then(|arr| arr.first()) {
                 if let Some(fields) = first_endpoint.get("fields") {
-                    value = fields.get(&param.name).map(|v| v.to_string());
+                    exact_value = fields.get(&param.name).map(|v| v.to_string());
                 }
             }
         }
-        parameters.push((
-            param.name.clone(),
-            param.description.clone(),
-            value,
-        ));
+
+        // Semantic matching
+        let semantic_results = match_fields_semantic(&json_result, &endpoint_result).await?;
+        let semantic_value = semantic_results
+            .iter()
+            .find(|(name, _, _)| name == &param.name)
+            .and_then(|(_, _, value)| value.clone());
+
+        parameters.push(ServiceParameter {
+            name: param.name.clone(),
+            description: param.description.clone(),
+            value: exact_value,
+            semantic_value,
+        });
     }
 
     debug!("Analysis completed successfully");
@@ -74,7 +94,7 @@ mod tests {
                 assert!(!result.endpoint_id.is_empty());
                 assert!(!result.endpoint_description.is_empty());
                 // Add more assertions as needed
-            },
+            }
             Err(e) => panic!("Analysis failed: {}", e),
         }
     }

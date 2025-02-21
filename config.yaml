@@ -1,5 +1,5 @@
 output: grpc
-level: debug
+level: info
 server_id: "semantic-service"  # Identifies this service in the logs
 client_id: "semantic-service"
 grpc:
@@ -37,3 +37,17 @@ debug_mode:
   enabled: false
   test_interval_secs: 10
 # log_all_messages: false 
+
+models:
+  sentence_to_json:
+    name: "llama2"
+    temperature: 0.1
+    max_tokens: 1000
+  find_endpoint:
+    name: "deepseek-r1:8b"
+    temperature: 0.1
+    max_tokens: 500
+  semantic_match:
+    name: "deepseek-r1:8b"
+    temperature: 0.1
+    max_tokens: 500
