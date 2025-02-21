@@ -24,9 +24,6 @@ pub async fn handle_cli(cli: Cli) -> Result<(), Box<dyn Error + Send + Sync>> {
         println!("\nParameters:");
         for param in result.parameters {
             println!("\n{} ({}):", param.name, param.description);
-            if let Some(value) = param.value {
-                println!("  Exact Match: {}", value);
-            }
             if let Some(semantic) = param.semantic_value {
                 println!("  Semantic Match: {}", semantic);
             }

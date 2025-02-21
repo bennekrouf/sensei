@@ -79,7 +79,6 @@ impl SentenceService for SentenceAnalyzeService {
                             .map(|param| Parameter {
                                 name: param.name,
                                 description: param.description,
-                                value: param.value,
                                 semantic_value: param.semantic_value,
                             })
                             .collect(),

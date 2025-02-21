@@ -42,6 +42,5 @@ pub struct ConfigFile {
 pub struct Parameter {
     pub name: String,
     pub description: String,
-    pub value: Option<String>,
     pub semantic_value: Option<String>,
 }

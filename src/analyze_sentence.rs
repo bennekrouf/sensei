@@ -68,7 +68,6 @@ pub async fn analyze_sentence(
         parameters.push(ServiceParameter {
             name: param.name.clone(),
             description: param.description.clone(),
-            value: exact_value,
             semantic_value,
         });
     }
