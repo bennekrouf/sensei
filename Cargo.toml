@@ -24,6 +24,7 @@ http = "1.2.0"
 tokio-stream = "0.1.17"
 futures = "0.3.31"
 clap = { version = "4.5.30", features = ["derive"] }
+async-trait = "0.1.86"
 
 [build-dependencies]
 tonic-build = "0.12.3"

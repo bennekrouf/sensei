@@ -1,6 +1,7 @@
 pub mod config;
 
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 
 #[derive(Serialize, Debug)]
 pub struct GenerateRequest {
@@ -33,14 +34,22 @@ pub struct EndpointParameter {
     pub alternatives: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ConfigFile {
     pub endpoints: Vec<Endpoint>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Parameter {
     pub name: String,
     pub description: String,
     pub semantic_value: Option<String>,
+}
+
+impl ConfigFile {
+    pub async fn load() -> Result<Self, Box<dyn Error + Send + Sync>> {
+        let config_str = tokio::fs::read_to_string("endpoints.yaml").await?;
+        let config: ConfigFile = serde_yaml::from_str(&config_str)?;
+        Ok(config)
+    }
 }

@@ -1,6 +1,7 @@
 mod analyze_sentence;
 mod call_ollama;
 mod cli;
+mod workflow;
 //mod example_usage_with_json;
 mod first_find_closest_endpoint;
 mod fourth_match_fields;
