@@ -10,26 +10,20 @@ pub async fn match_fields_semantic(
     input_json: &Value,
     endpoint: &Endpoint,
 ) -> Result<Vec<(String, String, Option<String>)>, Box<dyn Error + Send + Sync>> {
-    let input_fields = if let Some(endpoints) = input_json.get("endpoints") {
-        if let Some(first_endpoint) = endpoints.as_array().and_then(|arr| arr.first()) {
-            if let Some(fields) = first_endpoint.get("fields") {
-                if let Some(obj) = fields.as_object() {
-                    obj.iter()
-                        .map(|(k, v)| format!("{}: {}", k, v))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                } else {
-                    return Err("Fields is not an object".into());
-                }
-            } else {
-                return Err("No fields found in JSON".into());
-            }
-        } else {
-            return Err("No endpoints found in JSON".into());
-        }
-    } else {
-        return Err("Invalid JSON structure".into());
-    };
+    let input_fields = input_json
+        .get("endpoints")
+        .ok_or("Invalid JSON structure")?
+        .as_array()
+        .and_then(|arr| arr.first())
+        .ok_or("No endpoints found in JSON")?
+        .get("fields")
+        .ok_or("No fields found in JSON")?
+        .as_object()
+        .ok_or("Fields is not an object")?
+        .iter()
+        .map(|(k, v)| format!("{}: {}", k, v))
+        .collect::<Vec<_>>()
+        .join(", ");
 
     let parameters = endpoint
         .parameters
