@@ -2,7 +2,7 @@ pub mod config;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct GenerateRequest {
     pub model: String,
     pub prompt: String,

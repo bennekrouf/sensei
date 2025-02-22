@@ -20,7 +20,7 @@ pub async fn call_ollama_with_config(
         max_tokens: model_config.max_tokens,
     };
 
-    info!("Sending request to Ollama");
+    info!("Sending request to Ollama : {:?}", &request_body);
     let response = client
         .post("http://localhost:11434/api/generate")
         .json(&request_body)

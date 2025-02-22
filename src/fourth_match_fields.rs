@@ -57,7 +57,7 @@ pub async fn match_fields_semantic(
         .replace("{parameters}", &parameters);
 
     debug!("Field matching prompt:\n{}", prompt);
-    info!("Calling Ollama for field matching");
+    debug!("Calling Ollama for field matching");
     // Load model configuration
     let models_config = load_models_config().await?;
     let model_config = &models_config.sentence_to_json;
