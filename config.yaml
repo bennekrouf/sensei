@@ -3,7 +3,6 @@ level: info
 server_id: "semantic-service"  # Identifies this service in the logs
 client_id: "semantic-service"
 grpc:
-  # host: "127.0.0.1"
   address: "127.0.0.1"
   port: 50052 # Port where your grpc-logger server is running
 log_fields:
@@ -18,25 +17,9 @@ client_retry:
   reconnect_delay_secs: 5
 log_all_messages: false
 
-
-# whoami: "semantic"
-# output: grpc # console, file
-# level: debug
-# grpc:
-#   address: "127.0.0.1"
-#   port: 50052
-# # file_path: "logs"
-# # file_name: "app.log"
-# log_fields:
-#   include_thread_id: false
-#   include_target: false
-#   include_file: false
-#   include_line: false
-#   include_timestamp: false
 debug_mode:
   enabled: false
   test_interval_secs: 10
-# log_all_messages: false 
 
 models:
   sentence_to_json:

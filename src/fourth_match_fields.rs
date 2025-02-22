@@ -1,5 +1,6 @@
 use crate::models::config::load_models_config;
 use crate::models::Endpoint;
+use crate::prompts::PromptManager;
 use crate::{call_ollama::call_ollama_with_config, json_helper::sanitize_json};
 use serde_json::Value;
 use std::error::Error;
@@ -44,23 +45,19 @@ pub async fn match_fields_semantic(
         .collect::<Vec<_>>()
         .join("\n");
 
-    let prompt = format!(
-        "Given these input fields from a sentence: '{input_fields}'\n\
-        And these endpoint parameters:\n{parameters}\n\n\
-        For each endpoint parameter:\n\
-        1. Look at the input fields\n\
-        2. Find any field that matches the parameter or its alternatives\n\
-        3. Extract the actual value from the matching input field\n\n\
-        Return a JSON where:\n\
-        - Keys are the endpoint parameter names\n\
-        - Values are the actual values found in the input fields\n\
-        Only include parameters where you found a matching value.\n\
-        Return valid JSON only, no additional text.",
-    );
+    // Initialize PromptManager and get the match_fields template
+    let prompt_manager = PromptManager::new().await?;
+    let template = prompt_manager
+        .get_prompt("match_fields")
+        .ok_or("Match fields prompt template not found")?;
+
+    // Replace placeholders in the template
+    let prompt = template
+        .replace("{input_fields}", &input_fields)
+        .replace("{parameters}", &parameters);
 
     debug!("Field matching prompt:\n{}", prompt);
     info!("Calling Ollama for field matching");
-
     // Load model configuration
     let models_config = load_models_config().await?;
     let model_config = &models_config.sentence_to_json;

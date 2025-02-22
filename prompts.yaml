@@ -17,13 +17,17 @@ prompts:
 
   match_fields:
     template: |
-      Map these input fields to endpoint parameters:
-      Input fields: {input_fields}
-      Available parameters:
-      {parameters}
-      Return only a JSON with parameter name as key and matched value as value.
-      Use the alternatives list to find matching fields.
-      Return only the parameters that have matching input fields.
+      Given these input fields from a sentence: '{input_fields}'\n\
+      And these endpoint parameters:\n{parameters}\n\n\
+      For each endpoint parameter:\n\
+      1. Look at the input fields\n\
+      2. Find any field that matches the parameter or its alternatives\n\
+      3. Extract the actual value from the matching input field\n\n\
+      Return a JSON where:\n\
+      - Keys are the endpoint parameter names\n\
+      - Values are the actual values found in the input fields\n\
+      Only include parameters where you found a matching value.\n\
+      Return valid JSON only, no additional text.
 
   sentence_to_json:
     template: |
@@ -42,15 +46,18 @@ prompts:
       6. Output ONLY the valid JSON without ANY introduction sentence like here is the json
       7. Output ONLY the valid JSON without ANY explanation after outputing the json
 
-      Example input: 'Send email to Alice at alice@example.com'
+      Example input: 'Send email to Alice at alice@example.com which title is New report and body is Hi Alice, here is the new report'
       Example output:
       Raw JSON string: {
         "endpoints": [
           {
+            "id": "send_email",
             "description": "Server Down",
             "fields": {
-              "server": "production",
-              "not_responding": true
+              "to": "alice@example.com",
+              "name": "Alice",
+              "title": "New report"
+              "content": "Hi Alice, \nhere is the new report."
             }
           }
         ]
