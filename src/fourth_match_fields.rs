@@ -4,7 +4,7 @@ use crate::prompts::PromptManager;
 use crate::{call_ollama::call_ollama_with_config, json_helper::sanitize_json};
 use serde_json::Value;
 use std::error::Error;
-use tracing::{debug, info};
+use tracing::debug;
 
 pub async fn match_fields_semantic(
     input_json: &Value,
@@ -34,14 +34,7 @@ pub async fn match_fields_semantic(
     let parameters = endpoint
         .parameters
         .iter()
-        .map(|p| {
-            format!(
-                "{}: {} (alternatives: {})",
-                p.name,
-                p.description,
-                p.alternatives.join(", ")
-            )
-        })
+        .map(|p| format!("{}: {}", p.name, p.description,))
         .collect::<Vec<_>>()
         .join("\n");
 
@@ -78,10 +71,14 @@ pub async fn match_fields_semantic(
 
         // If no exact match, try alternatives
         if value.is_none() {
-            for alt in &param.alternatives {
-                if let Some(v) = input_fields.get(alt) {
-                    value = Some(v.to_string());
-                    break;
+            if let Some(alternatives) = &param.alternatives {
+                for alt in alternatives {
+                    // Changed this line
+                    if let Some(v) = input_fields.get(alt) {
+                        // Now alt is a &String
+                        value = Some(v.to_string());
+                        break;
+                    }
                 }
             }
         }

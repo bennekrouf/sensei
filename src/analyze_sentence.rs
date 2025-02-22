@@ -4,7 +4,7 @@ use crate::models::config::load_models_config;
 use crate::models::config::ModelsConfig;
 use crate::models::ConfigFile;
 use crate::models::Endpoint;
-use crate::models::Parameter as ServiceParameter;
+use crate::models::EndpointParameter;
 use crate::workflow::WorkflowConfig;
 use crate::workflow::WorkflowEngine;
 use crate::workflow::WorkflowStep;
@@ -16,7 +16,7 @@ pub struct AnalysisResult {
     pub json_output: Value,
     pub endpoint_id: String,
     pub endpoint_description: String,
-    pub parameters: Vec<ServiceParameter>,
+    pub parameters: Vec<EndpointParameter>,
 }
 
 use async_trait::async_trait;
@@ -37,7 +37,7 @@ pub struct WorkflowContext {
     // Processing state
     pub json_output: Option<serde_json::Value>,
     pub matched_endpoint: Option<Endpoint>,
-    pub parameters: Vec<ServiceParameter>,
+    pub parameters: Vec<EndpointParameter>,
     pub endpoint_id: Option<String>,
     pub endpoint_description: Option<String>,
 }
@@ -150,7 +150,7 @@ impl WorkflowStep for FieldMatchingStep {
         let semantic_results = match_fields_semantic(json_output, endpoint).await?;
 
         // Convert semantic results to parameters
-        let parameters: Vec<ServiceParameter> = endpoint
+        let parameters: Vec<EndpointParameter> = endpoint
             .parameters
             .iter()
             .map(|param| {
@@ -159,10 +159,12 @@ impl WorkflowStep for FieldMatchingStep {
                     .find(|(name, _, _)| name == &param.name)
                     .and_then(|(_, _, value)| value.clone());
 
-                ServiceParameter {
+                EndpointParameter {
                     name: param.name.clone(),
                     description: param.description.clone(),
                     semantic_value,
+                    alternatives: param.alternatives.clone(),
+                    required: param.required,
                 }
             })
             .collect();

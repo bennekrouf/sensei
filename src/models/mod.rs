@@ -30,20 +30,14 @@ pub struct Endpoint {
 pub struct EndpointParameter {
     pub name: String,
     pub description: String,
-    pub required: bool,
-    pub alternatives: Vec<String>,
+    pub required: Option<bool>,
+    pub alternatives: Option<Vec<String>>,
+    pub semantic_value: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ConfigFile {
     pub endpoints: Vec<Endpoint>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Parameter {
-    pub name: String,
-    pub description: String,
-    pub semantic_value: Option<String>,
 }
 
 impl ConfigFile {

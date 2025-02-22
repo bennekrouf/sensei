@@ -9,7 +9,7 @@ use crate::{
     fourth_match_fields::match_fields_semantic,
     models::{
         config::{load_models_config, ModelConfig},
-        ConfigFile, Parameter,
+        ConfigFile, EndpointParameter,
     },
     prompts::PromptManager,
     zero_sentence_to_json::sentence_to_json,
@@ -170,10 +170,12 @@ impl WorkflowStep for FieldMatchingStep {
             // Convert tuple results into Parameter structs
             let parameters = semantic_results
                 .into_iter()
-                .map(|(name, description, semantic_value)| Parameter {
+                .map(|(name, description, semantic_value)| EndpointParameter {
                     name,
                     description,
                     semantic_value,
+                    alternatives: None,
+                    required: None,
                 })
                 .collect();
 
