@@ -1,14 +1,22 @@
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::error::Error;
+use tracing::{debug, warn};
 
 #[derive(Debug, Deserialize)]
-pub struct PromptTemplate {
+struct PromptVersion {
     template: String,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct PromptConfig {
-    prompts: std::collections::HashMap<String, PromptTemplate>,
+struct PromptVersions {
+    versions: HashMap<String, PromptVersion>,
+    default_version: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PromptConfig {
+    prompts: HashMap<String, PromptVersions>,
 }
 
 pub struct PromptManager {
@@ -22,19 +30,103 @@ impl PromptManager {
         Ok(Self { config })
     }
 
-    pub fn get_prompt(&self, name: &str) -> Option<&str> {
-        self.config.prompts.get(name).map(|t| t.template.as_str())
+    /// Gets a prompt template by name and optional version
+    pub fn get_prompt(&self, name: &str, version: Option<&str>) -> Option<&str> {
+        let prompt_versions = self.config.prompts.get(name)?;
+
+        let version_key = version.unwrap_or(&prompt_versions.default_version);
+
+        match prompt_versions.versions.get(version_key) {
+            Some(version) => Some(&version.template),
+            None => {
+                warn!(
+                    "Prompt version {} not found for {}, falling back to default",
+                    version_key, name
+                );
+                prompt_versions
+                    .versions
+                    .get(&prompt_versions.default_version)
+                    .map(|v| &v.template)
+                    .map(|x| x.as_str())
+            }
+        }
     }
 
-    pub fn format_find_endpoint(&self, input_sentence: &str, actions_list: &str) -> String {
-        let template = self.get_prompt("find_endpoint").unwrap_or_default();
+    pub fn format_find_endpoint(
+        &self,
+        input_sentence: &str,
+        actions_list: &str,
+        version: Option<&str>,
+    ) -> String {
+        let template = self
+            .get_prompt("find_endpoint", version)
+            .unwrap_or_default();
+
         template
             .replace("{input_sentence}", input_sentence)
             .replace("{actions_list}", actions_list)
     }
 
-    pub fn format_sentence_to_json(&self, sentence: &str) -> String {
-        let template = self.get_prompt("sentence_to_json").unwrap_or_default();
+    pub fn format_sentence_to_json(&self, sentence: &str, version: Option<&str>) -> String {
+        let template = self
+            .get_prompt("sentence_to_json", version)
+            .unwrap_or_default();
+
         template.replace("{sentence}", sentence)
+    }
+
+    pub fn format_match_fields(
+        &self,
+        input_fields: &str,
+        parameters: &str,
+        version: Option<&str>,
+    ) -> String {
+        let template = self.get_prompt("match_fields", version).unwrap_or_default();
+
+        template
+            .replace("{input_fields}", input_fields)
+            .replace("{parameters}", parameters)
+    }
+
+    /// Lists available versions for a prompt
+    pub fn list_versions(&self, prompt_name: &str) -> Option<Vec<String>> {
+        self.config
+            .prompts
+            .get(prompt_name)
+            .map(|p| p.versions.keys().cloned().collect())
+    }
+
+    /// Gets the default version for a prompt
+    pub fn get_default_version(&self, prompt_name: &str) -> Option<String> {
+        self.config
+            .prompts
+            .get(prompt_name)
+            .map(|p| p.default_version.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_prompt_versioning() {
+        let manager = PromptManager::new().await.unwrap();
+
+        // Test getting default version
+        let prompt = manager.get_prompt("find_endpoint", None);
+        assert!(prompt.is_some());
+
+        // Test getting specific version
+        let v1_prompt = manager.get_prompt("find_endpoint", Some("v1"));
+        assert!(v1_prompt.is_some());
+
+        // Test fallback for non-existent version
+        let invalid_prompt = manager.get_prompt("find_endpoint", Some("non_existent"));
+        assert_eq!(invalid_prompt, manager.get_prompt("find_endpoint", None));
+
+        // Test version listing
+        let versions = manager.list_versions("find_endpoint").unwrap();
+        assert!(versions.contains(&"v1".to_string()));
     }
 }

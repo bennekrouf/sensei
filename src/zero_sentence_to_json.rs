@@ -8,7 +8,7 @@ pub async fn sentence_to_json(
     sentence: &str,
 ) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
     let prompt_manager = PromptManager::new().await?;
-    let full_prompt = prompt_manager.format_sentence_to_json(sentence);
+    let full_prompt = prompt_manager.format_sentence_to_json(sentence, Some("v1"));
 
     // Load model configuration
     let models_config = load_models_config().await?;

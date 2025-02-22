@@ -48,7 +48,7 @@ pub async fn match_fields_semantic(
     // Initialize PromptManager and get the match_fields template
     let prompt_manager = PromptManager::new().await?;
     let template = prompt_manager
-        .get_prompt("match_fields")
+        .get_prompt("match_fields", Some("v1"))
         .ok_or("Match fields prompt template not found")?;
 
     // Replace placeholders in the template

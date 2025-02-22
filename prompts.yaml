@@ -1,66 +1,70 @@
 prompts:
   find_endpoint:
-    template: |
-      Given this reference sentence: '{input_sentence}'
-      Compare it to these possible actions and identify which one most closely matches the core intent and meaning of the reference sentence:
-      {actions_list}
-      Determine the closest match by:
-      1. Identifying the main verb/action in the reference sentence
-      2. Extracting key elements (who, what, when, where, why, how)
-      3. Comparing these elements to the fundamental purpose of each action option
-      4. Selecting the action that best captures the essential meaning and purpose
-
-      IMPORTANT: Output only the exact text of the single best matching action from the list.
-      DO NOT use any markdown formatting or code blocks.
-      DO NOT add any additional text or explanations.
-      DO NOT wrap the response in quotes or backticks.
-
+    versions:
+      v1:
+        template: |
+          Given this reference sentence: '{input_sentence}'
+          Compare it to these possible actions and identify which one most closely matches the core intent and meaning of the reference sentence:
+          {actions_list}
+          Determine the closest match by:
+          1. Identifying the main verb/action in the reference sentence
+          2. Extracting key elements (who, what, when, where, why, how)
+          3. Comparing these elements to the fundamental purpose of each action option
+          4. Selecting the action that best captures the essential meaning and purpose
+          IMPORTANT: Output only the exact text of the single best matching action from the list.
+          DO NOT use any markdown formatting or code blocks.
+          DO NOT add any additional text or explanations.
+          DO NOT wrap the response in quotes or backticks.
+    default_version: "v1"
+    
   match_fields:
-    template: |
-      Given these input fields from a sentence: '{input_fields}'\n\
-      And these endpoint parameters:\n{parameters}\n\n\
-      For each endpoint parameter:\n\
-      1. Look at the input fields\n\
-      2. Find any field that matches the parameter or its alternatives\n\
-      3. Extract the actual value from the matching input field\n\n\
-      Return a JSON where:\n\
-      - Keys are the endpoint parameter names\n\
-      - Values are the actual values found in the input fields\n\
-      Only include parameters where you found a matching value.\n\
-      Return valid JSON only, no additional text.
-
+    versions:
+      v1:
+        template: |
+          Given these input fields from a sentence: '{input_fields}'\n\
+          And these endpoint parameters:\n{parameters}\n\n\
+          For each endpoint parameter:\n\
+          1. Look at the input fields\n\
+          2. Find any field that matches the parameter or its alternatives\n\
+          3. Extract the actual value from the matching input field\n\n\
+          Return a JSON where:\n\
+          - Keys are the endpoint parameter names\n\
+          - Values are the actual values found in the input fields\n\
+          Only include parameters where you found a matching value.\n\
+          Return valid JSON only, no additional text.
+    default_version: "v1"
+    
   sentence_to_json:
-    template: |
-      Sentence: {sentence}
-
-      Task: Generate a precise, minimal JSON structure based strictly on the sentence.
-
-      Rules:
-      1. Create an 'endpoints' array with exactly the details from the sentence.
-      2. Each endpoint must have:
-         - Precise 'description' matching the sentence
-         - 'fields' object where EACH key has its EXACT value from the sentence
-      3. Do NOT invent additional endpoints or fields
-      4. Generate only plain field with its value and not a value a field value as field and a boolean nested in
-      5. Use the EXACT values found in the sentence for each field
-      6. Output ONLY the valid JSON without ANY introduction sentence like here is the json
-      7. Output ONLY the valid JSON without ANY explanation after outputing the json
-
-      Example input: 'Send email to Alice at alice@example.com which title is New report and body is Hi Alice, here is the new report'
-      Example output:
-      Raw JSON string: {
-        "endpoints": [
-          {
-            "id": "send_email",
-            "description": "Server Down",
-            "fields": {
-              "to": "alice@example.com",
-              "name": "Alice",
-              "title": "New report"
-              "content": "Hi Alice, \nhere is the new report."
-            }
+    versions:
+      v1:
+        template: |
+          Sentence: {sentence}
+          Task: Generate a precise, minimal JSON structure based strictly on the sentence.
+          Rules:
+          1. Create an 'endpoints' array with exactly the details from the sentence.
+          2. Each endpoint must have:
+             - Precise 'description' matching the sentence
+             - 'fields' object where EACH key has its EXACT value from the sentence
+          3. Do NOT invent additional endpoints or fields
+          4. Generate only plain field with its value and not a value a field value as field and a boolean nested in
+          5. Use the EXACT values found in the sentence for each field
+          6. Output ONLY the valid JSON without ANY introduction sentence like here is the json
+          7. Output ONLY the valid JSON without ANY explanation after outputing the json
+          Example input: 'Send email to Alice at alice@example.com which title is New report and body is Hi Alice, here is the new report'
+          Example output:
+          Raw JSON string: {
+            "endpoints": [
+              {
+                "id": "send_email",
+                "description": "Server Down",
+                "fields": {
+                  "to": "alice@example.com",
+                  "name": "Alice",
+                  "title": "New report"
+                  "content": "Hi Alice, \nhere is the new report."
+                }
+              }
+            ]
           }
-        ]
-      }
-
-      Now for your sentence: {sentence}
+          Now for your sentence: {sentence}
+    default_version: "v1"

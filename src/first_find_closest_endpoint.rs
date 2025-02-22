@@ -33,7 +33,7 @@ pub async fn find_closest_endpoint(
         .join("\n");
 
     // Get formatted prompt from PromptManager
-    let prompt = prompt_manager.format_find_endpoint(input_sentence, &actions_list);
+    let prompt = prompt_manager.format_find_endpoint(input_sentence, &actions_list, Some("v1"));
     debug!("Generated prompt:\n{}", prompt);
 
     // Call Ollama with configuration
