@@ -1,12 +1,10 @@
+use crate::call_ollama::call_ollama_with_config;
 use crate::models::config::load_models_config;
 use crate::models::ConfigFile;
 use crate::models::Endpoint;
 use crate::prompts::PromptManager;
-use crate::second_extract_matched_action::extract_matched_action;
-use crate::{
-    call_ollama::call_ollama_with_config,
-    third_find_endpoint_by_substring::find_endpoint_by_substring,
-};
+use crate::workflow::extract_matched_action::extract_matched_action;
+use crate::workflow::find_endpoint::find_endpoint_by_substring;
 use std::error::Error;
 use tracing::{debug, error, info};
 

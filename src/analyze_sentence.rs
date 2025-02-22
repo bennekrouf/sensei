@@ -1,14 +1,14 @@
-use crate::first_find_closest_endpoint::find_closest_endpoint;
-use crate::fourth_match_fields::match_fields_semantic;
 use crate::models::config::load_models_config;
 use crate::models::config::ModelsConfig;
 use crate::models::ConfigFile;
 use crate::models::Endpoint;
 use crate::models::EndpointParameter;
+use crate::workflow::find_closest_endpoint::find_closest_endpoint;
+use crate::workflow::match_fields::match_fields_semantic;
+use crate::workflow::sentence_to_json::sentence_to_json;
 use crate::workflow::WorkflowConfig;
 use crate::workflow::WorkflowEngine;
 use crate::workflow::WorkflowStep;
-use crate::zero_sentence_to_json::sentence_to_json;
 use serde_json::Value;
 use std::error::Error;
 use tracing::{debug, info};
@@ -51,7 +51,7 @@ pub struct ConfigurationLoadingStep;
 impl WorkflowStep for ConfigurationLoadingStep {
     async fn execute(
         &self,
-        context: &mut WorkflowContext,
+        context: &mut crate::workflow::context::WorkflowContext,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         info!("Loading configurations");
 
@@ -80,7 +80,7 @@ pub struct JsonGenerationStep;
 impl WorkflowStep for JsonGenerationStep {
     async fn execute(
         &self,
-        context: &mut WorkflowContext,
+        context: &mut crate::workflow::context::WorkflowContext,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         info!("Generating JSON from sentence");
 
@@ -103,7 +103,7 @@ pub struct EndpointMatchingStep;
 impl WorkflowStep for EndpointMatchingStep {
     async fn execute(
         &self,
-        context: &mut WorkflowContext,
+        context: &mut crate::workflow::context::WorkflowContext,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         info!("Finding closest matching endpoint");
 
@@ -134,7 +134,7 @@ pub struct FieldMatchingStep;
 impl WorkflowStep for FieldMatchingStep {
     async fn execute(
         &self,
-        context: &mut WorkflowContext,
+        context: &mut crate::workflow::context::WorkflowContext,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         info!("Performing field matching");
 
