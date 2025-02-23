@@ -108,5 +108,4 @@ prompts:
             ]
           }
           Now for your sentence: {sentence}    default_version: "v1"
-
     default_version: "v1"
