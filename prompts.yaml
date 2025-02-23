@@ -50,7 +50,8 @@ prompts:
           5. Use the EXACT values found in the sentence for each field
           6. Output ONLY the valid JSON without ANY introduction sentence like here is the json
           7. Output ONLY the valid JSON without ANY explanation after outputing the json
-          Example input: 'Send email to Alice at alice@example.com which title is New report and body is Hi Alice, here is the new report'
+          8. NEVER include trailing commas in the JSON output
+          9. For single field objects, format like: {"field": "value"}          Example input: 'Send email to Alice at alice@example.com which title is New report and body is Hi Alice, here is the new report'
           Example output:
           Raw JSON string: {
             "endpoints": [

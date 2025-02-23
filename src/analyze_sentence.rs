@@ -1,7 +1,5 @@
 use crate::models::config::load_models_config;
-use crate::models::config::ModelsConfig;
 use crate::models::ConfigFile;
-use crate::models::Endpoint;
 use crate::models::EndpointParameter;
 use crate::workflow::find_closest_endpoint::find_closest_endpoint;
 use crate::workflow::match_fields::match_fields_semantic;
@@ -20,27 +18,8 @@ pub struct AnalysisResult {
 }
 
 use async_trait::async_trait;
-//use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::error;
-
-// Step 1: Enhanced WorkflowContext to hold all necessary state
-#[derive(Clone, Debug, Default)]
-pub struct WorkflowContext {
-    // Input
-    pub sentence: String,
-
-    // Configurations
-    pub models_config: Option<ModelsConfig>,
-    pub endpoints_config: Option<ConfigFile>,
-
-    // Processing state
-    pub json_output: Option<serde_json::Value>,
-    pub matched_endpoint: Option<Endpoint>,
-    pub parameters: Vec<EndpointParameter>,
-    pub endpoint_id: Option<String>,
-    pub endpoint_description: Option<String>,
-}
 
 // Step 2: Define each workflow step
 

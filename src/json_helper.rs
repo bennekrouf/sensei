@@ -16,7 +16,10 @@ pub fn sanitize_json(raw_text: &str) -> Result<Value, Box<dyn Error + Send + Syn
         })?
         .as_str();
 
-    debug!("Extracted JSON string:\n{}", json_str);
+    // Remove trailing commas before parsing
+    let cleaned_json = remove_trailing_commas(json_str);
+
+    debug!("Cleaned JSON string:\n{}", cleaned_json);
 
     // Parse the JSON
     let parsed_json: Value = serde_json::from_str(json_str).map_err(|e| {
@@ -28,9 +31,40 @@ pub fn sanitize_json(raw_text: &str) -> Result<Value, Box<dyn Error + Send + Syn
     Ok(parsed_json)
 }
 
+fn remove_trailing_commas(json_str: &str) -> String {
+    // First, handle single-line trailing commas
+    let single_line_fixed = json_str.replace(", }", "}").replace(",}", "}");
+
+    // Then handle multi-line trailing commas with regex
+    let re = Regex::new(r",(\s*[\}\]])").expect("Invalid regex pattern");
+    re.replace_all(&single_line_fixed, "$1").to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_remove_trailing_commas() {
+        let input = r#"{
+            "customer_id": "Josiane",
+        }"#;
+        let expected = r#"{
+            "customer_id": "Josiane"
+        }"#;
+        assert_eq!(remove_trailing_commas(input), expected);
+    }
+
+    #[test]
+    fn test_sanitize_json_with_trailing_comma() {
+        let input = r#"Some text {
+            "customer_id": "Josiane",
+        } more text"#;
+        let result = sanitize_json(input);
+        assert!(result.is_ok());
+        let json = result.unwrap();
+        assert_eq!(json["customer_id"], "Josiane");
+    }
 
     #[test]
     fn test_sanitize_valid_json() {
