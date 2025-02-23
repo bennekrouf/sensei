@@ -10,7 +10,7 @@ pub mod sentence {
 }
 
 use sentence::sentence_service_server::SentenceService;
-use sentence::{Parameter, SentenceRequest, SentenceResponse};
+use sentence::{EndpointAnalysis, Parameter, SentenceRequest, SentenceResponse};
 use tonic::codegen::tokio_stream::wrappers::ReceiverStream;
 use tracing::Instrument;
 
@@ -70,18 +70,26 @@ impl SentenceService for SentenceAnalyzeService {
                 Ok(result) => {
                     tracing::info!(client_id = %client_id, "Analysis completed");
 
+                    // Convert each endpoint analysis to proto format
+                    let endpoint_analyses: Vec<EndpointAnalysis> = result
+                        .endpoints
+                        .into_iter()
+                        .map(|endpoint| EndpointAnalysis {
+                            endpoint_id: endpoint.endpoint_id,
+                            endpoint_description: endpoint.endpoint_description,
+                            parameters: endpoint
+                                .parameters
+                                .into_iter()
+                                .map(|param| Parameter {
+                                    name: param.name,
+                                    description: param.description,
+                                    semantic_value: param.semantic_value,
+                                })
+                                .collect(),
+                        })
+                        .collect();
+
                     let response = SentenceResponse {
-                        endpoint_id: result.endpoint_id,
-                        endpoint_description: result.endpoint_description,
-                        parameters: result
-                            .parameters
-                            .into_iter()
-                            .map(|param| Parameter {
-                                name: param.name,
-                                description: param.description,
-                                semantic_value: param.semantic_value,
-                            })
-                            .collect(),
                         json_output: match serde_json::to_string(&result.json_output) {
                             Ok(json) => json,
                             Err(e) => {
@@ -89,6 +97,7 @@ impl SentenceService for SentenceAnalyzeService {
                                 format!("{{\"error\": \"JSON serialization failed: {}\"}}", e)
                             }
                         },
+                        endpoints: endpoint_analyses,
                     };
 
                     tracing::info!(

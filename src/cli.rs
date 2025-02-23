@@ -17,15 +17,20 @@ pub async fn handle_cli(cli: Cli) -> Result<(), Box<dyn Error + Send + Sync>> {
         let result = analyze_sentence(&prompt).await?;
 
         println!("\nAnalysis Results:");
-        println!(
-            "Endpoint: {} ({})",
-            result.endpoint_id, result.endpoint_description
-        );
-        println!("\nParameters:");
-        for param in result.parameters {
-            println!("\n{} ({}):", param.name, param.description);
-            if let Some(semantic) = param.semantic_value {
-                println!("  Semantic Match: {}", semantic);
+
+        // Print each endpoint's results
+        for endpoint in &result.endpoints {
+            println!(
+                "\nEndpoint: {} ({})",
+                endpoint.endpoint_id, endpoint.endpoint_description
+            );
+
+            println!("\nParameters:");
+            for param in &endpoint.parameters {
+                println!("\n{} ({}):", param.name, param.description);
+                if let Some(semantic) = &param.semantic_value {
+                    println!("  Semantic Match: {}", semantic);
+                }
             }
         }
 

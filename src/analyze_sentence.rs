@@ -7,11 +7,18 @@ use crate::workflow::sentence_to_json::sentence_to_json;
 use crate::workflow::WorkflowConfig;
 use crate::workflow::WorkflowEngine;
 use crate::workflow::WorkflowStep;
-use serde_json::Value;
+use serde::Serialize;
 use std::error::Error;
 use tracing::{debug, info};
+
+#[derive(Debug, Serialize)]
 pub struct AnalysisResult {
-    pub json_output: Value,
+    pub json_output: serde_json::Value,
+    pub endpoints: Vec<EndpointAnalysis>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct EndpointAnalysis {
     pub endpoint_id: String,
     pub endpoint_description: String,
     pub parameters: Vec<EndpointParameter>,
@@ -223,14 +230,60 @@ pub async fn analyze_sentence(
     // Execute workflow
     let context = engine.execute(sentence.to_string()).await?;
 
-    // Convert workflow context to analysis result
+    // Get the JSON output
+    let json_output = context.json_output.ok_or("JSON output not available")?;
+
+    // Process each endpoint in the JSON
+    let mut endpoint_analyses = Vec::new();
+
+    if let Some(endpoints) = json_output["endpoints"].as_array() {
+        for endpoint_json in endpoints {
+            let endpoint_id = endpoint_json["id"]
+                .as_str()
+                .ok_or("Endpoint ID not available")?
+                .to_string();
+
+            let endpoint_description = endpoint_json["description"]
+                .as_str()
+                .ok_or("Endpoint description not available")?
+                .to_string();
+
+            // Find the corresponding endpoint configuration
+            let config_str = tokio::fs::read_to_string("endpoints.yaml").await?;
+            let endpoints_config: ConfigFile = serde_yaml::from_str(&config_str)?;
+
+            let endpoint_config = endpoints_config
+                .endpoints
+                .iter()
+                .find(|e| e.id == endpoint_id)
+                .ok_or("Endpoint configuration not found")?;
+
+            // Match fields for this endpoint
+            let semantic_results = match_fields_semantic(&endpoint_json, endpoint_config).await?;
+
+            // Convert semantic results to parameters
+            let parameters = semantic_results
+                .into_iter()
+                .map(|(name, description, semantic_value)| EndpointParameter {
+                    name,
+                    description,
+                    semantic_value,
+                    alternatives: None,
+                    required: None,
+                })
+                .collect();
+
+            endpoint_analyses.push(EndpointAnalysis {
+                endpoint_id,
+                endpoint_description,
+                parameters,
+            });
+        }
+    }
+
     Ok(AnalysisResult {
-        json_output: context.json_output.ok_or("JSON output not available")?,
-        endpoint_id: context.endpoint_id.ok_or("Endpoint ID not available")?,
-        endpoint_description: context
-            .endpoint_description
-            .ok_or("Endpoint description not available")?,
-        parameters: context.parameters,
+        json_output,
+        endpoints: endpoint_analyses,
     })
 }
 

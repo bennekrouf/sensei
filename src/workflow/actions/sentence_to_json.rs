@@ -8,7 +8,7 @@ pub async fn sentence_to_json(
     sentence: &str,
 ) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
     let prompt_manager = PromptManager::new().await?;
-    let full_prompt = prompt_manager.format_sentence_to_json(sentence, Some("v1"));
+    let full_prompt = prompt_manager.format_sentence_to_json(sentence, Some("v2"));
 
     // Load model configuration
     let models_config = load_models_config().await?;
@@ -19,13 +19,13 @@ pub async fn sentence_to_json(
 
     let parsed_json = sanitize_json(&full_response_text)?;
 
-    // Validate the JSON structure - Fixed the condition
+    // Validate the JSON structure has endpoints array
     if !parsed_json.is_object() || !parsed_json.get("endpoints").is_some() {
         error!("Invalid JSON structure: missing 'endpoints' array");
         return Err("Invalid JSON structure: missing 'endpoints' array".into());
     }
 
-    // Additional validation to ensure endpoints is an array and has at least one item
+    // Ensure endpoints is an array
     let endpoints = parsed_json
         .get("endpoints")
         .and_then(|e| e.as_array())
@@ -34,11 +34,27 @@ pub async fn sentence_to_json(
             "Invalid JSON structure: 'endpoints' is not an array"
         })?;
 
-    if endpoints.is_empty() {
-        error!("Invalid JSON structure: 'endpoints' array is empty");
-        return Err("Invalid JSON structure: 'endpoints' array is empty".into());
+    // Validate each endpoint in the array
+    for (i, endpoint) in endpoints.iter().enumerate() {
+        if !endpoint.is_object() {
+            error!("Invalid endpoint structure at index {}", i);
+            return Err(format!("Invalid endpoint structure at index {}", i).into());
+        }
+
+        let fields = endpoint.get("fields").ok_or_else(|| {
+            error!("Missing fields object in endpoint at index {}", i);
+            format!("Missing fields object in endpoint at index {}", i)
+        })?;
+
+        if !fields.is_object() {
+            error!("Invalid fields structure at index {}", i);
+            return Err(format!("Invalid fields structure at index {}", i).into());
+        }
     }
 
-    info!("Successfully generated and validated JSON");
+    info!(
+        "Successfully generated and validated JSON with {} endpoints",
+        endpoints.len()
+    );
     Ok(parsed_json)
 }

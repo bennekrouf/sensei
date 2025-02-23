@@ -1,5 +1,5 @@
 output: grpc
-level: info
+level: debug
 server_id: "semantic-service"  # Identifies this service in the logs
 client_id: "semantic-service"
 grpc:

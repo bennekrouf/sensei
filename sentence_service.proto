@@ -13,12 +13,16 @@ message SentenceRequest {
 message Parameter {
   string name = 1;
   string description = 2;
-  optional string semantic_value = 3;  // Added for semantic matching
+  optional string semantic_value = 3;
 }
 
-message SentenceResponse {
+message EndpointAnalysis {
   string endpoint_id = 1;
   string endpoint_description = 2;
   repeated Parameter parameters = 3;
-  string json_output = 4;
+}
+
+message SentenceResponse {
+  string json_output = 1;
+  repeated EndpointAnalysis endpoints = 2;
 }

@@ -6,7 +6,6 @@ mod json_helper;
 mod models;
 mod prompts;
 mod sentence_service;
-//use workflow::{find_closest_endpoint, match_fields_semantic, sentence_to_json};
 mod workflow;
 use clap::Parser;
 use cli::{handle_cli, Cli};

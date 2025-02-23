@@ -68,4 +68,45 @@ prompts:
             ]
           }
           Now for your sentence: {sentence}
+      v2:
+        template: |
+          Sentence: {sentence}
+          Task: Generate a precise, minimal JSON structure based strictly on the sentence.
+          Rules:
+          1. Create an 'endpoints' array containing ALL relevant endpoints found in the sentence
+          2. Each endpoint in the array must have:
+             - Precise 'description' matching the relevant part of the sentence
+             - 'fields' object where EACH key has its EXACT value from the sentence
+          3. Do NOT invent additional fields or values
+          4. Generate only plain field with its value and not a value a field value as field and a boolean nested in
+          5. Use the EXACT values found in the sentence for each field
+          6. Output ONLY the valid JSON without ANY introduction sentence like here is the json
+          7. Output ONLY the valid JSON without ANY explanation after outputing the json
+          8. NEVER include trailing commas in the JSON output
+          9. For single field objects, format like: {"field": "value"}
+          Example input: 'Send email to Alice at alice@example.com which title is New report and body is Hi Alice, here is the new report. Also schedule a meeting with her tomorrow at 2pm'
+          Example output:
+          {
+            "endpoints": [
+              {
+                "id": "send_email",
+                "description": "Send email to Alice",
+                "fields": {
+                  "to": "alice@example.com",
+                  "title": "New report",
+                  "body": "Hi Alice, here is the new report"
+                }
+              },
+              {
+                "id": "schedule_meeting",
+                "description": "Schedule meeting with Alice",
+                "fields": {
+                  "participants": "Alice",
+                  "time": "tomorrow at 2pm"
+                }
+              }
+            ]
+          }
+          Now for your sentence: {sentence}    default_version: "v1"
+
     default_version: "v1"
