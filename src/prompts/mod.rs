@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::error::Error;
-use tracing::{debug, warn};
+use tracing::warn;
 
 #[derive(Debug, Deserialize)]
 struct PromptVersion {

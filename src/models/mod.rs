@@ -1,7 +1,7 @@
 pub mod config;
 pub mod providers;
 
-pub use providers::{ModelConfig, ModelProvider, ModelsConfig};
+pub use providers::{ModelConfig, ModelsConfig};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 

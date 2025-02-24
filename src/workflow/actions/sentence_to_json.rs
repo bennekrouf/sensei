@@ -1,6 +1,6 @@
 use crate::json_helper::sanitize_json;
 use crate::models::config::load_models_config;
-use crate::models::providers::{ModelConfig, ModelProvider, ModelsConfig};
+use crate::models::providers::ModelProvider;
 
 use crate::prompts::PromptManager;
 use std::{error::Error, sync::Arc};
