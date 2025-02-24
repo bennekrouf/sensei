@@ -19,8 +19,8 @@ use tracing::{error, info};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let config = load_config("config.yaml")?;
-    setup_logging(&config).await?;
+    // let config = load_config("config.yaml")?;
+    // setup_logging(&config).await?;
 
     // Parse CLI arguments
     let cli = Cli::parse();
