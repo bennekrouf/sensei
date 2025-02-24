@@ -9,6 +9,10 @@ mod sentence_service;
 use std::sync::Arc;
 mod workflow;
 use crate::models::providers::ProviderSelector;
+
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, Registry};
 use clap::Parser;
 use cli::{handle_cli, Cli};
 use grpc_logger::load_config;
@@ -30,11 +34,11 @@ pub struct AppState {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let log_config = load_config("config.yaml")?;
-    //setup_logging(&log_config).await?;
 
-    // Initialize environment variables from .env file
-    init_environment()?;
-
+    Registry::default()
+        .with(tracing_subscriber::fmt::layer())
+        .with(EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new("INFO")))
+        .init();
     // Parse CLI arguments
     let cli = Cli::parse();
 
