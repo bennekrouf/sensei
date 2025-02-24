@@ -8,6 +8,10 @@ mod prompts;
 mod sentence_service;
 //use workflow::{find_closest_endpoint, match_fields_semantic, sentence_to_json};
 mod workflow;
+
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, Registry};
 use clap::Parser;
 use cli::{handle_cli, Cli};
 use grpc_logger::load_config;
@@ -22,6 +26,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // let config = load_config("config.yaml")?;
     // setup_logging(&config).await?;
 
+    Registry::default()
+        .with(tracing_subscriber::fmt::layer())
+        .with(EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new("INFO")))
+        .init();
     // Parse CLI arguments
     let cli = Cli::parse();
 
