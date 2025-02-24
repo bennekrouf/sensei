@@ -49,7 +49,9 @@ impl WorkflowStep for EndpointMatchingStep {
         &self,
         context: &mut WorkflowContext,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let endpoint = find_closest_endpoint(&self.config, &context.sentence).await?;
+        let endpoint =
+            find_closest_endpoint(&self.config, &context.sentence, context.provider.clone())
+                .await?;
         context.matched_endpoint = Some(endpoint);
         Ok(())
     }

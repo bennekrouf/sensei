@@ -1,16 +1,19 @@
-use crate::call_ollama::call_ollama_with_config;
+use std::error::Error;
+use std::sync::Arc;
+use tracing::{debug, error, info};
+
 use crate::models::config::load_models_config;
+use crate::models::providers::ModelProvider;
 use crate::models::ConfigFile;
 use crate::models::Endpoint;
 use crate::prompts::PromptManager;
 use crate::workflow::extract_matched_action::extract_matched_action;
 use crate::workflow::find_endpoint::find_endpoint_by_substring;
-use std::error::Error;
-use tracing::{debug, error, info};
 
 pub async fn find_closest_endpoint(
     config: &ConfigFile,
     input_sentence: &str,
+    provider: Arc<dyn ModelProvider>,
 ) -> Result<Endpoint, Box<dyn Error + Send + Sync>> {
     info!("Starting endpoint matching for input: {}", input_sentence);
     debug!("Available endpoints: {}", config.endpoints.len());
@@ -34,13 +37,13 @@ pub async fn find_closest_endpoint(
     let prompt = prompt_manager.format_find_endpoint(input_sentence, &actions_list, Some("v1"));
     debug!("Generated prompt:\n{}", prompt);
 
-    // Call Ollama with configuration
-    info!("Calling Ollama with model: {}", model_config.name);
-    let raw_response = call_ollama_with_config(model_config, &prompt).await?;
-    debug!("Raw Ollama response: '{}'", raw_response);
+    // Use the provider instead of calling Ollama directly
+    info!("Using provider with model: {}", model_config.name);
+    let raw_response = provider.generate(&prompt, model_config).await?;
+    debug!("Raw model response: '{}'", raw_response);
 
     let cleaned_response = extract_matched_action(&raw_response).await?;
-    info!("Raw cleaned_response response: '{}'", cleaned_response);
+    info!("Cleaned response: '{}'", cleaned_response);
 
     let matched_endpoint = match find_endpoint_by_substring(config, &cleaned_response) {
         Ok(endpoint) => endpoint.clone(),

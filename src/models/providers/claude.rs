@@ -64,6 +64,12 @@ impl ModelProvider for ClaudeProvider {
             .await?;
 
         let response_json: serde_json::Value = response.json().await?;
+
+        println!(
+            "Claude API response: {}",
+            serde_json::to_string_pretty(&response_json).unwrap()
+        );
+
         let content = response_json["content"][0]["text"]
             .as_str()
             .ok_or("Invalid response format")?

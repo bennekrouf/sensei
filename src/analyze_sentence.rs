@@ -92,8 +92,10 @@ impl WorkflowStep for EndpointMatchingStep {
             .as_ref()
             .ok_or("Endpoints configuration not loaded")?;
 
-        let endpoint_result = find_closest_endpoint(config, &context.sentence).await?;
+        //let endpoint_result = find_closest_endpoint(config, &context.sentence).await?;
 
+        let endpoint_result =
+            find_closest_endpoint(config, &context.sentence, context.provider.clone()).await?;
         context.endpoint_id = Some(endpoint_result.id.clone());
         context.endpoint_description = Some(endpoint_result.description.clone());
         context.matched_endpoint = Some(endpoint_result);
