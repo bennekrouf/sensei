@@ -1,3 +1,5 @@
+use crate::models::providers::ModelProvider;
+
 use super::config::RetryConfig;
 use super::{config::StepConfig, steps::WorkflowStep, WorkflowContext};
 use std::error::Error;
@@ -18,12 +20,10 @@ impl WorkflowEngine {
 
     pub async fn execute(
         &self,
-        input: String,
+        sentence: String,
+        provider: Arc<dyn ModelProvider>,
     ) -> Result<WorkflowContext, Box<dyn Error + Send + Sync>> {
-        let mut context = WorkflowContext {
-            sentence: input,
-            ..Default::default()
-        };
+        let mut context = WorkflowContext::new(sentence, provider);
 
         for (config, step) in &self.steps {
             if !config.enabled {

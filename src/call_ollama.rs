@@ -1,5 +1,5 @@
-use crate::models::config::ModelConfig;
 use crate::models::GenerateRequest;
+use crate::models::ModelConfig;
 use crate::models::OllamaResponse;
 
 use std::error::Error;

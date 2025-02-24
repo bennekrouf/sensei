@@ -21,6 +21,7 @@ debug_mode:
   enabled: false
   test_interval_secs: 10
 
+# Model configurations
 models:
   sentence_to_json:
     name: "llama2"
@@ -34,3 +35,11 @@ models:
     name: "deepseek-r1:8b"
     temperature: 0.1
     max_tokens: 500
+
+providers:
+  ollama:
+    enabled: true
+    host: "http://localhost:11434"
+  claude:
+    enabled: false
+    api_key: ""  # Will be loaded from .env

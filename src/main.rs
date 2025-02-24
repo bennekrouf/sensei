@@ -6,36 +6,60 @@ mod json_helper;
 mod models;
 mod prompts;
 mod sentence_service;
-//use workflow::{find_closest_endpoint, match_fields_semantic, sentence_to_json};
+use std::sync::Arc;
 mod workflow;
+use crate::models::providers::ProviderSelector;
 use clap::Parser;
 use cli::{handle_cli, Cli};
 use grpc_logger::load_config;
 use grpc_logger::setup_logging;
+use grpc_logger::LogConfig;
 use grpc_server::start_sentence_grpc_server;
+use models::providers::init_environment;
+use models::providers::ModelProvider;
 use std::error::Error;
 use tokio::signal;
 use tracing::{error, info};
 
+#[derive(Clone)]
+pub struct AppState {
+    provider: Arc<dyn ModelProvider>,
+    log_config: Arc<LogConfig>,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let config = load_config("config.yaml")?;
-    setup_logging(&config).await?;
+    let log_config = load_config("config.yaml")?;
+    //setup_logging(&log_config).await?;
+
+    // Initialize environment variables from .env file
+    init_environment()?;
 
     // Parse CLI arguments
     let cli = Cli::parse();
 
+    // Initialize provider based on CLI flag
+    let provider = ProviderSelector::select_provider(cli.claude);
+
+    // Wrap the provider in an Arc right away so we can clone it
+    let provider_arc: Arc<dyn ModelProvider> = Arc::from(provider);
+
+    let app_state = AppState {
+        provider: provider_arc.clone(),
+        log_config: Arc::new(log_config),
+    };
+
     // Handle CLI command if present, otherwise start gRPC server
     match cli.prompt {
         Some(_) => {
-            handle_cli(cli).await?;
+            handle_cli(cli, provider_arc).await?;
         }
         None => {
             info!("No prompt provided, starting gRPC server...");
 
             // Start the gRPC server
-            let grpc_server = tokio::spawn(async {
-                if let Err(e) = start_sentence_grpc_server().await {
+            let grpc_server = tokio::spawn(async move {
+                if let Err(e) = start_sentence_grpc_server(provider_arc.clone()).await {
                     error!("gRPC server error: {:?}", e);
                 }
             });

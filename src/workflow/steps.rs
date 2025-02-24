@@ -1,14 +1,10 @@
-use crate::{
-    models::{config::ModelConfig, ConfigFile},
-    prompts::PromptManager,
-};
-
-use crate::workflow::context::WorkflowContext;
-
 use super::{
     config::StepConfig, find_closest_endpoint::find_closest_endpoint,
     match_fields::match_fields_semantic, sentence_to_json::sentence_to_json,
 };
+use crate::models::providers::ModelConfig;
+use crate::workflow::context::WorkflowContext;
+use crate::{models::ConfigFile, prompts::PromptManager};
 use std::{error::Error, sync::Arc};
 
 pub struct JsonGenerationStep {
@@ -32,7 +28,8 @@ impl WorkflowStep for JsonGenerationStep {
         &self,
         context: &mut WorkflowContext,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let json_output = sentence_to_json(&context.sentence).await?;
+        // Pass both the sentence and the provider from context
+        let json_output = sentence_to_json(&context.sentence, context.provider.clone()).await?;
         context.json_output = Some(json_output);
         Ok(())
     }
@@ -62,9 +59,8 @@ impl WorkflowStep for EndpointMatchingStep {
     }
 }
 
-use async_trait::async_trait;
-
 use crate::models::EndpointParameter;
+use async_trait::async_trait;
 
 // Workflow configuration loaded from YAML
 

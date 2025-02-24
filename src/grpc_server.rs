@@ -1,12 +1,16 @@
-use tonic_reflection::server::Builder;
-use tracing::info;
-use crate::sentence_service::SentenceAnalyzeService;
+use crate::models::providers::ModelProvider;
 use crate::sentence_service::sentence::sentence_service_server::SentenceServiceServer;
+use crate::sentence_service::SentenceAnalyzeService;
+use std::sync::Arc;
 use tonic::transport::Server;
+use tonic_reflection::server::Builder;
 use tonic_web::GrpcWebLayer;
 use tower_http::cors::{Any, CorsLayer};
+use tracing::info;
 
-pub async fn start_sentence_grpc_server() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn start_sentence_grpc_server(
+    provider: Arc<dyn ModelProvider>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let addr = "0.0.0.0:50053".parse()?;
     info!("Starting sentence analysis gRPC server on {}", addr);
 
@@ -24,7 +28,8 @@ pub async fn start_sentence_grpc_server() -> Result<(), Box<dyn std::error::Erro
 
     tracing::info!("Starting semantic gRPC server on {}", addr);
 
-    let sentence_service = SentenceAnalyzeService::default();
+    // Use the provider that was passed in from main.rs
+    let sentence_service = SentenceAnalyzeService::new(provider);
     let service = SentenceServiceServer::new(sentence_service);
 
     match Server::builder()
@@ -42,7 +47,7 @@ pub async fn start_sentence_grpc_server() -> Result<(), Box<dyn std::error::Erro
         })
         .await
     {
-    Ok(_) => Ok::<(), Box<dyn std::error::Error + Send + Sync>>(()),
+        Ok(_) => Ok::<(), Box<dyn std::error::Error + Send + Sync>>(()),
         Err(e) => {
             if e.to_string().contains("Address already in use") {
                 tracing::error!("Port already in use. Please stop other instances first.");
