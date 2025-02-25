@@ -1,4 +1,5 @@
 use crate::models::config::load_models_config;
+use crate::models::providers::ModelProvider;
 use crate::models::ConfigFile;
 use crate::models::EndpointParameter;
 use crate::workflow::find_closest_endpoint::find_closest_endpoint;
@@ -63,7 +64,7 @@ impl WorkflowStep for JsonGenerationStep {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         info!("Generating JSON from sentence");
 
-        let json_result = sentence_to_json(&context.sentence).await?;
+        let json_result = sentence_to_json(&context.sentence, context.provider.clone()).await?;
         context.json_output = Some(json_result);
 
         debug!("JSON generation successful");
@@ -91,8 +92,10 @@ impl WorkflowStep for EndpointMatchingStep {
             .as_ref()
             .ok_or("Endpoints configuration not loaded")?;
 
-        let endpoint_result = find_closest_endpoint(config, &context.sentence).await?;
+        //let endpoint_result = find_closest_endpoint(config, &context.sentence).await?;
 
+        let endpoint_result =
+            find_closest_endpoint(config, &context.sentence, context.provider.clone()).await?;
         context.endpoint_id = Some(endpoint_result.id.clone());
         context.endpoint_description = Some(endpoint_result.description.clone());
         context.matched_endpoint = Some(endpoint_result);
@@ -191,6 +194,7 @@ steps:
 // Step 4: Updated analyze_sentence function
 pub async fn analyze_sentence(
     sentence: &str,
+    provider: Arc<dyn ModelProvider>,
 ) -> Result<AnalysisResult, Box<dyn Error + Send + Sync>> {
     info!("Starting sentence analysis for: {}", sentence);
 
@@ -221,7 +225,7 @@ pub async fn analyze_sentence(
     }
 
     // Execute workflow
-    let context = engine.execute(sentence.to_string()).await?;
+    let context = engine.execute(sentence.to_string(), provider).await?;
 
     // Convert workflow context to analysis result
     Ok(AnalysisResult {

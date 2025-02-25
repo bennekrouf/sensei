@@ -1,6 +1,8 @@
 use crate::analyze_sentence::analyze_sentence;
+use crate::models::providers::ModelProvider;
 use futures::Stream;
 use std::pin::Pin;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tonic::metadata::MetadataMap;
 use tonic::{Request, Response, Status};
@@ -14,10 +16,21 @@ use sentence::{Parameter, SentenceRequest, SentenceResponse};
 use tonic::codegen::tokio_stream::wrappers::ReceiverStream;
 use tracing::Instrument;
 
-#[derive(Debug, Default)]
-pub struct SentenceAnalyzeService;
+pub struct SentenceAnalyzeService {
+    provider: Arc<dyn ModelProvider>,
+}
 
 impl SentenceAnalyzeService {
+    // Add a constructor to store the provider
+    pub fn new(provider: Arc<dyn ModelProvider>) -> Self {
+        Self { provider }
+    }
+
+    // For backward compatibility, but not recommended
+    pub fn default() -> Self {
+        panic!("SentenceAnalyzeService::default() is not supported. Use SentenceAnalyzeService::new() instead.");
+    }
+
     // Helper function to extract client_id from metadata
     fn get_client_id(metadata: &MetadataMap) -> String {
         metadata
@@ -25,6 +38,15 @@ impl SentenceAnalyzeService {
             .and_then(|v| v.to_str().ok())
             .unwrap_or("unknown-client")
             .to_string()
+    }
+}
+
+// Implement Debug manually
+impl std::fmt::Debug for SentenceAnalyzeService {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SentenceAnalyzeService")
+            .field("provider", &"<dyn ModelProvider>")
+            .finish()
     }
 }
 
@@ -63,8 +85,14 @@ impl SentenceService for SentenceAnalyzeService {
         let (tx, rx) = mpsc::channel(10);
         let analyze_span = tracing::info_span!("analyze_sentence", client_id = %client_id);
 
+        // Clone the provider to move into the spawned task
+        let provider_clone = self.provider.clone();
+
         tokio::spawn(async move {
-            let result = analyze_sentence(&sentence).instrument(analyze_span).await;
+            // Pass both the sentence and the provider to analyze_sentence
+            let result = analyze_sentence(&sentence, provider_clone)
+                .instrument(analyze_span)
+                .await;
 
             match result {
                 Ok(result) => {
