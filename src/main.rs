@@ -14,8 +14,6 @@ use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Registry};
 use clap::Parser;
 use cli::{handle_cli, Cli};
-use grpc_logger::load_config;
-use grpc_logger::setup_logging;
 use grpc_server::start_sentence_grpc_server;
 use std::error::Error;
 use tokio::signal;
