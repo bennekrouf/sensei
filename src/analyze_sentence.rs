@@ -1,3 +1,5 @@
+// src/analyze_sentence.rs
+use crate::endpoint_client::{fetch_remote_endpoints, convert_remote_endpoints};
 use crate::models::config::load_models_config;
 use crate::models::providers::ModelProvider;
 use crate::models::ConfigFile;
@@ -10,7 +12,8 @@ use crate::workflow::WorkflowEngine;
 use crate::workflow::WorkflowStep;
 use serde_json::Value;
 use std::error::Error;
-use tracing::{debug, info};
+use tracing::{debug, info, error};
+
 pub struct AnalysisResult {
     pub json_output: Value,
     pub endpoint_id: String,
@@ -20,12 +23,14 @@ pub struct AnalysisResult {
 
 use async_trait::async_trait;
 use std::sync::Arc;
-use tracing::error;
 
 // Step 2: Define each workflow step
 
 // Step 2.1: Configuration Loading Step
-pub struct ConfigurationLoadingStep;
+pub struct ConfigurationLoadingStep {
+    pub api_url: Option<String>,
+    pub email: String,
+}
 
 #[async_trait]
 impl WorkflowStep for ConfigurationLoadingStep {
@@ -35,10 +40,36 @@ impl WorkflowStep for ConfigurationLoadingStep {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         info!("Loading configurations");
 
-        // Load endpoints configuration
-        let config_str = tokio::fs::read_to_string("endpoints.yaml").await?;
-        let config: ConfigFile = serde_yaml::from_str(&config_str)?;
-        context.endpoints_config = Some(config);
+        // Set email in context
+        context.email = Some(self.email.clone());
+
+        // Load endpoints configuration (from remote API or local file)
+        if let Some(api_url) = &self.api_url {
+            info!("Loading endpoints from remote API: {}", api_url);
+            
+            match fetch_remote_endpoints(api_url.clone(), &self.email).await {
+                Ok(remote_endpoints) => {
+                    info!("Successfully loaded {} endpoints from remote API", remote_endpoints.len());
+                    let endpoints = convert_remote_endpoints(remote_endpoints);
+                    let config = ConfigFile { endpoints };
+                    context.endpoints_config = Some(config);
+                },
+                Err(e) => {
+                    error!("Failed to load endpoints from remote API: {}", e);
+                    // Fallback to local file if remote loading fails
+                    info!("Falling back to local endpoints file");
+                    let config_str = tokio::fs::read_to_string("endpoints.yaml").await?;
+                    let config: ConfigFile = serde_yaml::from_str(&config_str)?;
+                    context.endpoints_config = Some(config);
+                }
+            }
+        } else {
+            // Load from local file
+            info!("Loading endpoints from local file");
+            let config_str = tokio::fs::read_to_string("endpoints.yaml").await?;
+            let config: ConfigFile = serde_yaml::from_str(&config_str)?;
+            context.endpoints_config = Some(config);
+        }
 
         // Load model configurations
         let models_config = load_models_config().await?;
@@ -52,6 +83,9 @@ impl WorkflowStep for ConfigurationLoadingStep {
         "configuration_loading"
     }
 }
+
+// The rest of the workflow steps remain mostly unchanged
+// ...
 
 // Step 2.2: JSON Generation Step
 pub struct JsonGenerationStep;
@@ -91,8 +125,6 @@ impl WorkflowStep for EndpointMatchingStep {
             .endpoints_config
             .as_ref()
             .ok_or("Endpoints configuration not loaded")?;
-
-        //let endpoint_result = find_closest_endpoint(config, &context.sentence).await?;
 
         let endpoint_result =
             find_closest_endpoint(config, &context.sentence, context.provider.clone()).await?;
@@ -162,7 +194,7 @@ impl WorkflowStep for FieldMatchingStep {
     }
 }
 
-// Step 3: Workflow Configuration
+// Step 3: Workflow Configuration (unchanged)
 const WORKFLOW_CONFIG: &str = r#"
 steps:
   - name: configuration_loading
@@ -191,12 +223,21 @@ steps:
     timeout_secs: 20
 "#;
 
-// Step 4: Updated analyze_sentence function
+// Step 4: Updated analyze_sentence function with API URL parameter
 pub async fn analyze_sentence(
     sentence: &str,
     provider: Arc<dyn ModelProvider>,
+    api_url: Option<String>,
+    email: &str,
 ) -> Result<AnalysisResult, Box<dyn Error + Send + Sync>> {
     info!("Starting sentence analysis for: {}", sentence);
+    info!("Using email: {}", email);
+    
+    if let Some(url) = &api_url {
+        info!("Using remote API for endpoints: {}", url);
+    } else {
+        info!("Using local endpoints file");
+    }
 
     // Initialize workflow engine
     let config: WorkflowConfig = serde_yaml::from_str(WORKFLOW_CONFIG)?;
@@ -206,7 +247,13 @@ pub async fn analyze_sentence(
     for step_config in config.steps {
         match step_config.name.as_str() {
             "configuration_loading" => {
-                engine.register_step(step_config, Arc::new(ConfigurationLoadingStep));
+                engine.register_step(
+                    step_config, 
+                    Arc::new(ConfigurationLoadingStep {
+                        api_url: api_url.clone(),
+                        email: email.to_string(),
+                    })
+                );
             }
             "json_generation" => {
                 engine.register_step(step_config, Arc::new(JsonGenerationStep));
@@ -236,51 +283,4 @@ pub async fn analyze_sentence(
             .ok_or("Endpoint description not available")?,
         parameters: context.parameters,
     })
-}
-
-// Step 5: Tests to verify functionality
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_workflow_execution() {
-        let test_sentence = "schedule a meeting tomorrow at 2pm with John";
-        match analyze_sentence(test_sentence).await {
-            Ok(result) => {
-                assert!(!result.endpoint_id.is_empty());
-                assert!(!result.endpoint_description.is_empty());
-                assert!(!result.parameters.is_empty());
-
-                // Verify correct endpoint was matched
-                assert_eq!(result.endpoint_id, "schedule_meeting");
-
-                // Verify parameters were extracted
-                let has_time = result.parameters.iter().any(|p| p.name == "time");
-                let has_participants = result.parameters.iter().any(|p| p.name == "participants");
-
-                assert!(has_time);
-                assert!(has_participants);
-            }
-            Err(e) => panic!("Workflow execution failed: {}", e),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_analyze_sentence() {
-        let test_sentence = "schedule a meeting tomorrow at 2pm with John";
-        match analyze_sentence(test_sentence).await {
-            Ok(result) => {
-                assert!(!result.endpoint_id.is_empty());
-                assert!(!result.endpoint_description.is_empty());
-                // Add more assertions as needed
-            }
-            Err(e) => panic!("Analysis failed: {}", e),
-        }
-    }
 }

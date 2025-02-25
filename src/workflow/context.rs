@@ -9,6 +9,7 @@ use std::sync::Arc;
 pub struct WorkflowContext {
     // Input
     pub sentence: String,
+    pub email: Option<String>,
     // Configurations
     pub models_config: Option<ModelsConfig>,
     pub endpoints_config: Option<ConfigFile>,
@@ -25,6 +26,7 @@ impl WorkflowContext {
     pub fn new(sentence: String, provider: Arc<dyn ModelProvider>) -> Self {
         Self {
             sentence,
+            email: None,
             provider,
             models_config: None,
             endpoints_config: None,
@@ -42,6 +44,7 @@ impl std::fmt::Debug for WorkflowContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WorkflowContext")
             .field("sentence", &self.sentence)
+            .field("email", &self.email)
             .field("models_config", &self.models_config)
             .field("endpoints_config", &self.endpoints_config)
             .field("json_output", &self.json_output)

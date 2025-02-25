@@ -13,7 +13,7 @@ message SentenceRequest {
 message Parameter {
   string name = 1;
   string description = 2;
-  optional string semantic_value = 3;  // Added for semantic matching
+  optional string semantic_value = 3;
 }
 
 message SentenceResponse {

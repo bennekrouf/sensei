@@ -4,7 +4,7 @@ server_id: "semantic-service"  # Identifies this service in the logs
 client_id: "semantic-service"
 grpc:
   address: "127.0.0.1"
-  port: 50052 # Port where your grpc-logger server is running
+  port: 50055 # Port where your grpc-logger server is running
 log_fields:
   include_thread_id: true
   include_target: true

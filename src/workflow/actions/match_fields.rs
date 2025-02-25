@@ -1,7 +1,7 @@
 use crate::models::config::load_models_config;
 use crate::models::Endpoint;
 use crate::prompts::PromptManager;
-use crate::{call_ollama::call_ollama_with_config, json_helper::sanitize_json};
+use crate::json_helper::sanitize_json;
 use serde_json::Value;
 use std::error::Error;
 use tracing::debug;

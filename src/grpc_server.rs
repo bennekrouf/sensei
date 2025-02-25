@@ -10,9 +10,17 @@ use tracing::info;
 
 pub async fn start_sentence_grpc_server(
     provider: Arc<dyn ModelProvider>,
+    api_url: Option<String>,
+    default_email: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let addr = "0.0.0.0:50053".parse()?;
     info!("Starting sentence analysis gRPC server on {}", addr);
+
+    if let Some(url) = &api_url {
+        info!("Using remote endpoint API at: {}", url);
+    } else {
+        info!("Using local endpoints file");
+    }
 
     let descriptor_set = include_bytes!(concat!(env!("OUT_DIR"), "/sentence_descriptor.bin"));
     let reflection_service = Builder::configure()
@@ -29,7 +37,7 @@ pub async fn start_sentence_grpc_server(
     tracing::info!("Starting semantic gRPC server on {}", addr);
 
     // Use the provider that was passed in from main.rs
-    let sentence_service = SentenceAnalyzeService::new(provider);
+    let sentence_service = SentenceAnalyzeService::new(provider, api_url, default_email);
     let service = SentenceServiceServer::new(sentence_service);
 
     match Server::builder()

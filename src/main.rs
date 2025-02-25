@@ -7,6 +7,8 @@ mod json_helper;
 mod models;
 mod prompts;
 mod sentence_service;
+mod endpoint_client; 
+
 use std::sync::Arc;
 mod workflow;
 use crate::models::config::load_models_config;
@@ -33,6 +35,7 @@ use tracing::{error, info};
 pub struct AppState {
     provider: Arc<dyn ModelProvider>,
     log_config: Arc<LogConfig>,
+    api_url: Option<String>,
 }
 
 #[tokio::main]
@@ -107,6 +110,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let app_state = AppState {
         provider: provider_arc.clone(),
         log_config: Arc::new(log_config),
+        api_url: cli.api.clone(),
     };
 
     // Handle CLI command if present, otherwise start gRPC server
@@ -121,9 +125,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             };
             info!("No prompt provided, starting gRPC server with {}...", provider_name);
 
-            // Start the gRPC server
+            // Start the gRPC server with our API URL if provided
             let grpc_server = tokio::spawn(async move {
-                if let Err(e) = start_sentence_grpc_server(provider_arc.clone()).await {
+                if let Err(e) = start_sentence_grpc_server(provider_arc.clone(), app_state.api_url, cli.email).await {
                     error!("gRPC server error: {:?}", e);
                 }
             });

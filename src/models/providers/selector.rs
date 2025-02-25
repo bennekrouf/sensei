@@ -7,7 +7,7 @@ use super::ollama::OllamaProvider;
 use crate::ModelProvider;
 use dotenv::dotenv;
 use std::env;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 pub struct ProviderSelector;
 

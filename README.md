@@ -43,16 +43,40 @@ openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -node
 
 ## Usage
 
-After installation, you can use `apicheck` in two ways:
+After installation, you can use `apicheck` in several ways:
 
-### CLI Mode
+### CLI Mode with Local Endpoints
 ```bash
 # Analyze a sentence with Ollama
 apicheck --provider ollama "schedule a meeting tomorrow at 2pm with John"
 
 # Analyze a sentence with Claude
 apicheck --provider claude "schedule a meeting tomorrow at 2pm with John"
+```
 
+### CLI Mode with Remote Endpoints
+```bash
+# Use a remote gRPC endpoint service for fetching endpoints
+apicheck --provider claude --api http://example.com:50053 "schedule a meeting tomorrow at 2pm with John"
+
+# With email authentication
+apicheck --provider claude --api http://example.com:50053 --email user@example.com "schedule a meeting tomorrow at 2pm with John"
+```
+
+### gRPC Server Mode
+```bash
+# Start the gRPC server with Ollama (using local endpoints)
+apicheck --provider ollama
+
+# Start the gRPC server with Claude (using local endpoints)
+apicheck --provider claude
+
+# Start the gRPC server with Claude (using remote endpoints)
+apicheck --provider claude --api http://example.com:50053
+```
+
+### Help
+```bash
 # Show help
 apicheck --help
 ```
@@ -61,33 +85,79 @@ apicheck --help
 - `ollama` - Use local Ollama instance (default host: localhost:11434)
 - `claude` - Use Claude API (requires API key in .env file)
 
-### gRPC Server Mode
+## Remote Endpoint Service
+
+APICheck can now use a remote gRPC endpoint service to fetch the list of endpoints instead of using a local file. The remote service must implement the following gRPC service:
+
+```protobuf
+syntax = "proto3";
+package endpoint;
+
+service EndpointService {
+    rpc GetDefaultEndpoints (GetEndpointsRequest) returns (stream GetEndpointsResponse);
+    rpc UploadEndpoints (UploadEndpointsRequest) returns (UploadEndpointsResponse);
+}
+
+message GetEndpointsRequest {
+    string email = 1;
+}
+
+message Parameter {
+    string name = 1;
+    string description = 2;
+    bool required = 3;
+    repeated string alternatives = 4;
+}
+
+message Endpoint {
+    string id = 1;
+    string text = 2;
+    string description = 3;
+    repeated Parameter parameters = 4;
+    string verb = 5;
+}
+
+message GetEndpointsResponse {
+    repeated Endpoint endpoints = 1;
+}
+
+message UploadEndpointsRequest {
+    string email = 1;
+    bytes file_content = 2;
+    string file_name = 3;
+}
+
+message UploadEndpointsResponse {
+    bool success = 1;
+    string message = 2;
+    int32 imported_count = 3;
+}
+```
+
+### Client Authentication
+
+When using a remote endpoint service, you can specify an email address for authentication:
+
 ```bash
-# Start the gRPC server with Ollama
-apicheck --provider ollama
-
-# Start the gRPC server with Claude
-apicheck --provider claude
+apicheck --provider claude --api http://example.com:50053 --email user@example.com "analyze this sentence"
 ```
 
-### Error Troubleshooting
+For gRPC clients connecting to the APICheck server, you can provide the email in the metadata:
 
-If you see this error:
 ```
-error: the following required arguments were not provided:
-  --provider <PROVIDER>
+email: user@example.com
 ```
 
-Make sure to specify either `ollama` or `claude`:
-```bash
-apicheck --provider ollama
-# or
-apicheck --provider claude
-```
+## Sequence of Operation
+
+1. When using the `--api` flag, APICheck will attempt to fetch endpoints from the specified remote service
+2. If the remote service is unavailable, it will fall back to the local `endpoints.yaml` file
+3. The email will be passed to the remote service for authentication (if provided)
+4. The rest of the analysis works the same way as with local endpoints
 
 ## Configuration
 
-1. Create a `endpoints.yaml` file in your working directory with your endpoint definitions:
+1. Create a `endpoints.yaml` file in your working directory with your endpoint definitions (used as fallback):
 
 ```yaml
 endpoints:

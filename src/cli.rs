@@ -23,6 +23,14 @@ pub struct Cli {
     /// Select which LLM provider to use: 'ollama' or 'claude'
     #[arg(long, value_enum, required = true, value_name = "TYPE")]
     pub provider: ProviderType,
+    
+    /// Remote API endpoint for fetching endpoint definitions (optional)
+    #[arg(long, value_name = "URL")]
+    pub api: Option<String>,
+    
+    /// Email address for authentication with the remote API
+    #[arg(long, value_name = "EMAIL")]
+    pub email: Option<String>,
 }
 
 pub async fn handle_cli(
@@ -39,8 +47,19 @@ pub async fn handle_cli(
             }
         };
 
+        let endpoint_source = match &cli.api {
+            Some(api_url) => format!("remote API ({})", api_url),
+            None => "local file".to_string(),
+        };
+        
+        info!("Using endpoints from {}", endpoint_source);
         info!("Analyzing prompt via CLI: {}", prompt);
-        let result = analyze_sentence(&prompt, provider).await?;
+        
+        // Get email from CLI or use default
+        let email = cli.email.unwrap_or_else(|| "default@example.com".to_string());
+        
+        // Pass the API URL and email to analyze_sentence
+        let result = analyze_sentence(&prompt, provider, cli.api, &email).await?;
 
         println!("\nAnalysis Results:");
         println!(
