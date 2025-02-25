@@ -1,0 +1,21 @@
+#!/bin/bash
+# example.sh - Show how to use apicheck
+
+echo "APICheck example commands:"
+echo ""
+echo "1. Start server with Ollama:"
+echo "   cargo run -- --provider ollama"
+echo ""
+echo "2. Start server with Claude:"
+echo "   cargo run -- --provider claude"
+echo ""
+echo "3. Analyze text with Ollama:"
+echo "   cargo run -- --provider ollama \"analyze this text\""
+echo ""
+echo "4. Analyze text with Claude:"
+echo "   cargo run -- --provider claude \"analyze this text\""
+echo ""
+echo "5. Show help:"
+echo "   cargo run -- --help"
+echo ""
+echo "Remember to set up your .env file with CLAUDE_API_KEY if using Claude."

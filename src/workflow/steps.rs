@@ -80,7 +80,7 @@ impl WorkflowStep for FieldMatchingStep {
         context: &mut WorkflowContext,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let (Some(json), Some(endpoint)) = (&context.json_output, &context.matched_endpoint) {
-            let semantic_results = match_fields_semantic(json, endpoint).await?;
+            let semantic_results = match_fields_semantic(json, endpoint, context.provider.clone()).await?;
 
             // Convert tuple results into Parameter structs
             let parameters = semantic_results

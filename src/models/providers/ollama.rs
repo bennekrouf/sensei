@@ -1,4 +1,6 @@
-use super::{ModelConfig, ModelProvider, ProviderConfig};
+// src/models/providers/ollama.rs
+
+use super::{ModelConfig, ModelProvider, ProviderConfig, ProviderSelector};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -40,8 +42,11 @@ impl ModelProvider for OllamaProvider {
     ) -> Result<String, Box<dyn Error + Send + Sync>> {
         let client = reqwest::Client::new();
 
+        // Get the appropriate Ollama model name
+        let model_name = ProviderSelector::get_model_name(config, false);
+
         let request = GenerateRequest {
-            model: config.name.clone(),
+            model: model_name.clone(),
             prompt: prompt.to_string(),
             stream: false,
             format: None,
@@ -49,7 +54,7 @@ impl ModelProvider for OllamaProvider {
             max_tokens: config.max_tokens,
         };
 
-        debug!("Sending request to Ollama API");
+        debug!("Sending request to Ollama API for model: {}", model_name);
         let response = client
             .post(format!("{}/api/generate", self.host))
             .json(&request)

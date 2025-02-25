@@ -6,9 +6,12 @@ use serde_json::Value;
 use std::error::Error;
 use tracing::debug;
 
+use std::sync::Arc;
+ use crate::ModelProvider;
 pub async fn match_fields_semantic(
     input_json: &Value,
     endpoint: &Endpoint,
+    provider: Arc<dyn ModelProvider>,  // Add this parameter
 ) -> Result<Vec<(String, String, Option<String>)>, Box<dyn Error + Send + Sync>> {
     let input_fields = input_json
         .get("endpoints")
@@ -49,7 +52,10 @@ pub async fn match_fields_semantic(
     let models_config = load_models_config().await?;
     let model_config = &models_config.sentence_to_json;
 
-    let response = call_ollama_with_config(model_config, &prompt).await?;
+    // let response = call_ollama_with_config(model_config, &prompt).await?;
+
+    let response = provider.generate(&prompt, model_config).await?;
+
     let json_response = sanitize_json(&response)?;
 
     debug!("Semantic matching response: {:?}", json_response);

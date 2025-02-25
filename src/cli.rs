@@ -1,8 +1,18 @@
-use clap::Parser;
+// src/cli.rs
+use clap::{Parser, ValueEnum};
 use std::{error::Error, sync::Arc};
 use tracing::info;
 
 use crate::{analyze_sentence::analyze_sentence, models::providers::ModelProvider};
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
+#[clap(rename_all = "lowercase")]
+pub enum ProviderType {
+    /// Use Ollama (local models)
+    Ollama,
+    /// Use Claude API (requires API key in .env)
+    Claude,
+}
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -10,9 +20,9 @@ pub struct Cli {
     /// The sentence to analyze (if not provided, starts gRPC server)
     pub prompt: Option<String>,
 
-    /// Use Claude API instead of self-hosted models
-    #[arg(long)]
-    pub claude: bool,
+    /// Select which LLM provider to use: 'ollama' or 'claude'
+    #[arg(long, value_enum, required = true, value_name = "TYPE")]
+    pub provider: ProviderType,
 }
 
 pub async fn handle_cli(
@@ -20,10 +30,13 @@ pub async fn handle_cli(
     provider: Arc<dyn ModelProvider>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     if let Some(prompt) = cli.prompt {
-        let _ = if cli.claude {
-            info!("Using Claude API for analysis");
-        } else {
-            info!("Using self-hosted models for analysis");
+        match cli.provider {
+            ProviderType::Claude => {
+                info!("Using Claude API for analysis");
+            }
+            ProviderType::Ollama => {
+                info!("Using self-hosted Ollama models for analysis");
+            }
         };
 
         info!("Analyzing prompt via CLI: {}", prompt);

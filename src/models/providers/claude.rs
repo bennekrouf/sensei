@@ -1,6 +1,6 @@
 // src/models/providers/claude.rs
 
-use super::{ModelConfig, ModelProvider, ProviderConfig};
+use super::{ModelConfig, ModelProvider, ProviderConfig, ProviderSelector};
 use async_trait::async_trait;
 use serde::Serialize;
 use std::error::Error;
@@ -43,9 +43,12 @@ impl ModelProvider for ClaudeProvider {
         config: &ModelConfig,
     ) -> Result<String, Box<dyn Error + Send + Sync>> {
         debug!("Generating response with Claude API");
-
+        
+        // Get the appropriate Claude model name
+        let model_name = ProviderSelector::get_model_name(config, true);
+        
         let request = ClaudeRequest {
-            model: config.name.clone(),
+            model: model_name,
             messages: vec![Message {
                 role: "user".to_string(),
                 content: prompt.to_string(),

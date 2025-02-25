@@ -129,7 +129,7 @@ impl WorkflowStep for FieldMatchingStep {
             .as_ref()
             .ok_or("Matched endpoint not available")?;
 
-        let semantic_results = match_fields_semantic(json_output, endpoint).await?;
+        let semantic_results = match_fields_semantic(json_output, endpoint, context.provider.clone()).await?;
 
         // Convert semantic results to parameters
         let parameters: Vec<EndpointParameter> = endpoint
