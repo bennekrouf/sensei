@@ -5,7 +5,7 @@ client_id: "semantic-service"
 grpc:
   # Keep original fields for logger compatibility
   address: "127.0.0.1"
-  port: 50055 # Port where your grpc-logger server is running
+  port: 50051 # Port where your grpc-logger server is running
 
 # Add our new server configuration
 server:
@@ -14,7 +14,7 @@ server:
 
 # Add endpoint client configuration
 endpoint_client:
-  default_address: "http://localhost:50052" # Default endpoint service URL if not provided via CLI
+  default_address: "http://localhost:50055" # Default endpoint service URL if not provided via CLI
 log_fields:
   include_thread_id: true
   include_target: true

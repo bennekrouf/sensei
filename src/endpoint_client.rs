@@ -19,8 +19,17 @@ pub async fn fetch_remote_endpoints(
     info!("Connecting to remote endpoint service at {}", addr);
 
     // Create a channel to the server
-    let channel = match Channel::from_shared(addr) {
-        Ok(channel) => channel.connect().await?,
+    let channel = match Channel::from_shared(addr).map(|c| {
+        c.connect_timeout(std::time::Duration::from_secs(5))
+            .timeout(std::time::Duration::from_secs(10))
+    }) {
+        Ok(channel) => match channel.connect().await {
+            Ok(ch) => ch,
+            Err(e) => {
+                error!("Failed to connect to endpoint service: {}", e);
+                return Err(Box::new(e));
+            }
+        },
         Err(e) => {
             error!("Failed to create channel: {}", e);
             return Err(Box::new(e));
@@ -37,13 +46,25 @@ pub async fn fetch_remote_endpoints(
 
     info!("Fetching endpoints for email: {}", email);
 
-    // Make the streaming call
-    let mut stream = client.get_default_endpoints(request).await?.into_inner();
+    // Make the streaming call - FIXED METHOD NAME HERE
+    let mut stream = match client.get_endpoints(request).await {
+        Ok(response) => response.into_inner(),
+        Err(e) => {
+            error!("Failed to get endpoints from service: {}", e);
+            return Err(format!("Failed to get endpoints from service: {}", e).into());
+        }
+    };
 
     // Collect all endpoints from the stream
     let mut endpoints = Vec::new();
 
-    while let Some(response) = stream.message().await? {
+    while let Some(response) = match stream.message().await {
+        Ok(maybe_response) => maybe_response,
+        Err(e) => {
+            error!("Error receiving endpoint stream: {}", e);
+            return Err(format!("Error receiving endpoint stream: {}", e).into());
+        }
+    } {
         info!("Received batch of {} endpoints", response.endpoints.len());
         endpoints.extend(response.endpoints);
     }
@@ -52,6 +73,10 @@ pub async fn fetch_remote_endpoints(
         "Successfully fetched {} endpoints from remote service",
         endpoints.len()
     );
+
+    if endpoints.is_empty() {
+        warn!("Remote service returned 0 endpoints for email: {}", email);
+    }
 
     Ok(endpoints)
 }
@@ -87,6 +112,7 @@ pub fn convert_remote_endpoints(
         .collect()
 }
 
+/// Check if the endpoint service is available
 pub async fn check_endpoint_service_health(
     addr: &str,
 ) -> Result<bool, Box<dyn Error + Send + Sync>> {
@@ -118,15 +144,21 @@ pub async fn verify_endpoints_configuration(
     // First check if remote API is available
     if let Some(url) = &api_url {
         match check_endpoint_service_health(url).await {
-            Ok(true) => return Ok(true),
+            Ok(true) => {
+                info!("Remote endpoint service is available at {}", url);
+                return Ok(true);
+            }
             Ok(false) => {
-                info!("Remote endpoint service unavailable, checking for local endpoints file");
+                warn!("Remote endpoint service at {} is not available", url);
+                info!("Checking for local endpoints file instead");
             }
             Err(e) => {
                 warn!("Error checking endpoint service: {}", e);
                 // Continue to check local file
             }
         }
+    } else {
+        info!("No remote endpoint service configured, checking for local endpoints file");
     }
 
     // Then check if local file exists
@@ -134,7 +166,32 @@ pub async fn verify_endpoints_configuration(
         Ok(metadata) => {
             if metadata.is_file() {
                 info!("Local endpoints file exists");
-                return Ok(true);
+
+                // Additional check to ensure file has content
+                match tokio::fs::read_to_string("endpoints.yaml").await {
+                    Ok(content) => {
+                        if content.trim().is_empty() {
+                            warn!("endpoints.yaml exists but is empty");
+                            return Ok(false);
+                        }
+
+                        // Basic validation of YAML structure
+                        match serde_yaml::from_str::<serde_yaml::Value>(&content) {
+                            Ok(_) => {
+                                info!("endpoints.yaml is valid YAML");
+                                return Ok(true);
+                            }
+                            Err(e) => {
+                                warn!("endpoints.yaml contains invalid YAML: {}", e);
+                                return Ok(false);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("Error reading endpoints.yaml: {}", e);
+                        return Err(Box::new(e));
+                    }
+                }
             } else {
                 warn!("endpoints.yaml exists but is not a file");
                 return Ok(false);
@@ -142,7 +199,11 @@ pub async fn verify_endpoints_configuration(
         }
         Err(e) => {
             if e.kind() == std::io::ErrorKind::NotFound {
-                error!("No local endpoints file found and no remote service available");
+                if api_url.is_some() {
+                    error!("Remote endpoint service unavailable and no local endpoints.yaml file found");
+                } else {
+                    error!("No local endpoints.yaml file found and no remote service configured");
+                }
                 return Ok(false);
             } else {
                 error!("Error checking for local endpoints file: {}", e);

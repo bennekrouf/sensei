@@ -30,25 +30,41 @@ pub async fn start_sentence_grpc_server(
 
     info!("Starting sentence analysis gRPC server on {}", addr);
 
-    // Check if endpoints are available
+    // Check if endpoints are available - REQUIRED for startup
     match verify_endpoints_configuration(api_url.clone()).await {
         Ok(true) => {
             info!("Endpoint configuration verified - either remote service or local file is available");
         }
         Ok(false) => {
-            warn!("WARNING: No endpoint configuration available! The server will start, but analysis requests will fail.");
-            warn!("Please ensure either:");
+            error!("FATAL: No endpoint configuration available! The server cannot start without endpoints.");
+
             if let Some(url) = &api_url {
-                warn!("  1. The endpoint service is running at {}", url);
+                error!("Please ensure the endpoint service is running at {}", url);
             } else {
-                warn!("  1. An endpoint service URL is configured");
+                error!("Please start with --api URL to connect to an endpoint service");
             }
-            warn!("  2. An endpoints.yaml file exists in the current directory");
+
+            error!("Alternatively, place an endpoints.yaml file in the current directory.");
+            return Err("No endpoint configuration available".into());
         }
         Err(e) => {
             error!("Error checking endpoint configuration: {}", e);
-            // Continue starting the server despite the error
+            return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Failed to verify endpoint configuration: {}", e),
+            )));
         }
+    }
+
+    // No email check here - emails will be provided by clients at request time
+    if let Some(default) = &default_email {
+        info!(
+            "Using default email for requests without email: {}",
+            default
+        );
+    } else if api_url.is_some() {
+        // Not an error, just a warning
+        warn!("No default email provided. Clients must include email in requests.");
     }
 
     let descriptor_set = include_bytes!(concat!(env!("OUT_DIR"), "/sentence_descriptor.bin"));
