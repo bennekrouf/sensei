@@ -1,5 +1,7 @@
+use crate::endpoint_client::endpoint::endpoint_service_client::EndpointServiceClient;
+use crate::endpoint_client::endpoint::GetEndpointsRequest;
 // src/analyze_sentence.rs
-use crate::endpoint_client::{fetch_remote_endpoints, convert_remote_endpoints};
+use crate::endpoint_client::{check_endpoint_service_health, convert_remote_endpoints};
 use crate::models::config::load_models_config;
 use crate::models::providers::ModelProvider;
 use crate::models::ConfigFile;
@@ -12,7 +14,8 @@ use crate::workflow::WorkflowEngine;
 use crate::workflow::WorkflowStep;
 use serde_json::Value;
 use std::error::Error;
-use tracing::{debug, info, error};
+use tonic::transport::Channel;
+use tracing::{debug, error, info, warn};
 
 pub struct AnalysisResult {
     pub json_output: Value,
@@ -25,8 +28,6 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 // Step 2: Define each workflow step
-
-// Step 2.1: Configuration Loading Step
 pub struct ConfigurationLoadingStep {
     pub api_url: Option<String>,
     pub email: String,
@@ -43,32 +44,151 @@ impl WorkflowStep for ConfigurationLoadingStep {
         // Set email in context
         context.email = Some(self.email.clone());
 
-        // Load endpoints configuration (from remote API or local file)
+        // Flag to track if we've successfully loaded endpoints
+        let mut endpoints_loaded = false;
+
+        // Load endpoints configuration from remote API if URL is provided
         if let Some(api_url) = &self.api_url {
             info!("Loading endpoints from remote API: {}", api_url);
-            
-            match fetch_remote_endpoints(api_url.clone(), &self.email).await {
-                Ok(remote_endpoints) => {
-                    info!("Successfully loaded {} endpoints from remote API", remote_endpoints.len());
-                    let endpoints = convert_remote_endpoints(remote_endpoints);
-                    let config = ConfigFile { endpoints };
-                    context.endpoints_config = Some(config);
-                },
+
+            // First verify the service is available, using same logic as server startup
+            match check_endpoint_service_health(api_url).await {
+                Ok(true) => {
+                    info!("Remote endpoint service is available, fetching endpoints");
+
+                    // Now attempt to fetch endpoints with increased timeout
+                    let _client = reqwest::Client::builder()
+                        .timeout(std::time::Duration::from_secs(10))
+                        .build()
+                        .unwrap_or_default();
+
+                    // Try to create a channel with explicit timeout
+                    match Channel::from_shared(api_url.clone()).map(|c| {
+                        c.connect_timeout(std::time::Duration::from_secs(5))
+                            .timeout(std::time::Duration::from_secs(10))
+                    }) {
+                        Ok(channel_builder) => {
+                            match channel_builder.connect().await {
+                                Ok(channel) => {
+                                    // Create endpoint client with the connected channel
+                                    let mut client = EndpointServiceClient::new(channel);
+
+                                    // Make the request
+                                    let request = tonic::Request::new(GetEndpointsRequest {
+                                        email: self.email.clone(),
+                                    });
+
+                                    info!("Requesting endpoints for email: {}", self.email);
+
+                                    // Attempt to get endpoints
+                                    match client.get_endpoints(request).await {
+                                        Ok(response) => {
+                                            let mut stream = response.into_inner();
+                                            let mut remote_endpoints = Vec::new();
+
+                                            // Collect all endpoints from stream
+                                            while let Some(resp) = stream.message().await? {
+                                                info!(
+                                                    "Received batch of {} endpoints",
+                                                    resp.endpoints.len()
+                                                );
+                                                remote_endpoints.extend(resp.endpoints);
+                                            }
+
+                                            if remote_endpoints.is_empty() {
+                                                warn!("Remote API returned empty endpoints list for email: {}", self.email);
+                                            } else {
+                                                info!("Successfully loaded {} endpoints for email: {}", 
+                                                      remote_endpoints.len(), self.email);
+
+                                                let endpoints =
+                                                    convert_remote_endpoints(remote_endpoints);
+                                                let config = ConfigFile { endpoints };
+                                                context.endpoints_config = Some(config);
+                                                endpoints_loaded = true;
+                                            }
+                                        }
+                                        Err(e) => {
+                                            error!("Failed to get endpoints from service: {}", e);
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    error!("Failed to connect to channel: {}", e);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed to create channel: {}", e);
+                        }
+                    }
+                }
+                Ok(false) => {
+                    error!("Remote endpoint service at {} is not available", api_url);
+                }
                 Err(e) => {
-                    error!("Failed to load endpoints from remote API: {}", e);
-                    // Fallback to local file if remote loading fails
-                    info!("Falling back to local endpoints file");
-                    let config_str = tokio::fs::read_to_string("endpoints.yaml").await?;
-                    let config: ConfigFile = serde_yaml::from_str(&config_str)?;
-                    context.endpoints_config = Some(config);
+                    error!("Error checking endpoint service health: {}", e);
                 }
             }
-        } else {
-            // Load from local file
-            info!("Loading endpoints from local file");
-            let config_str = tokio::fs::read_to_string("endpoints.yaml").await?;
-            let config: ConfigFile = serde_yaml::from_str(&config_str)?;
-            context.endpoints_config = Some(config);
+        }
+
+        // If we haven't loaded endpoints from API, try local file
+        if !endpoints_loaded {
+            info!("Attempting to load endpoints from local file");
+
+            match tokio::fs::read_to_string("endpoints.yaml").await {
+                Ok(config_str) => match serde_yaml::from_str::<ConfigFile>(&config_str) {
+                    Ok(config) => {
+                        info!(
+                            "Successfully loaded {} endpoints from local file",
+                            config.endpoints.len()
+                        );
+                        if config.endpoints.is_empty() {
+                            return Err("Local endpoints file contains no endpoints".into());
+                        }
+                        context.endpoints_config = Some(config);
+                        endpoints_loaded = true;
+                    }
+                    Err(e) => {
+                        error!("Failed to parse local endpoints file: {}", e);
+                        return Err(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::InvalidData,
+                                format!("No endpoint configuration available: Failed to parse endpoints.yaml: {}", e),
+                            )));
+                    }
+                },
+                Err(e) => {
+                    if e.kind() == std::io::ErrorKind::NotFound {
+                        if self.api_url.is_some() {
+                            error!("Local endpoints file not found and remote endpoint service unavailable");
+                            return Err(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::NotFound,
+                                format!("No endpoint configuration available: endpoints.yaml file not found and remote endpoint service unavailable for email: {}", self.email),
+                            )));
+                        } else {
+                            error!("Local endpoints file not found: endpoints.yaml");
+                            return Err(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::NotFound,
+                                "No endpoint configuration available: endpoints.yaml file not found and no remote endpoint service configured",
+                            )));
+                        }
+                    } else {
+                        error!("Error reading local endpoints file: {}", e);
+                        return Err(Box::new(std::io::Error::new(
+                            e.kind(),
+                            format!("No endpoint configuration available: Error reading endpoints.yaml: {}", e),
+                        )));
+                    }
+                }
+            }
+        }
+
+        // Verify that we have loaded endpoints
+        if !endpoints_loaded {
+            return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("No endpoints configuration available from remote service or local file for email: {}", self.email),
+            )));
         }
 
         // Load model configurations
@@ -83,9 +203,6 @@ impl WorkflowStep for ConfigurationLoadingStep {
         "configuration_loading"
     }
 }
-
-// The rest of the workflow steps remain mostly unchanged
-// ...
 
 // Step 2.2: JSON Generation Step
 pub struct JsonGenerationStep;
@@ -161,7 +278,8 @@ impl WorkflowStep for FieldMatchingStep {
             .as_ref()
             .ok_or("Matched endpoint not available")?;
 
-        let semantic_results = match_fields_semantic(json_output, endpoint, context.provider.clone()).await?;
+        let semantic_results =
+            match_fields_semantic(json_output, endpoint, context.provider.clone()).await?;
 
         // Convert semantic results to parameters
         let parameters: Vec<EndpointParameter> = endpoint
@@ -232,7 +350,7 @@ pub async fn analyze_sentence(
 ) -> Result<AnalysisResult, Box<dyn Error + Send + Sync>> {
     info!("Starting sentence analysis for: {}", sentence);
     info!("Using email: {}", email);
-    
+
     if let Some(url) = &api_url {
         info!("Using remote API for endpoints: {}", url);
     } else {
@@ -248,11 +366,11 @@ pub async fn analyze_sentence(
         match step_config.name.as_str() {
             "configuration_loading" => {
                 engine.register_step(
-                    step_config, 
+                    step_config,
                     Arc::new(ConfigurationLoadingStep {
                         api_url: api_url.clone(),
                         email: email.to_string(),
-                    })
+                    }),
                 );
             }
             "json_generation" => {

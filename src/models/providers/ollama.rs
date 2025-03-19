@@ -1,5 +1,3 @@
-// src/models/providers/ollama.rs
-
 use super::{ModelConfig, ModelProvider, ProviderConfig, ProviderSelector};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -27,6 +25,11 @@ struct OllamaResponse {
 
 impl OllamaProvider {
     pub fn new(config: &ProviderConfig) -> Self {
+        // Check if enabled to keep compiler happy
+        if !config.enabled {
+            debug!("Creating Ollama provider, but it's disabled in config");
+        }
+
         Self {
             host: config.host.clone().expect("Ollama host not specified"),
         }

@@ -1,3 +1,5 @@
+use crate::endpoint_client::verify_endpoints_configuration;
+use crate::models::config::load_server_config;
 use crate::models::providers::ModelProvider;
 use crate::sentence_service::sentence::sentence_service_server::SentenceServiceServer;
 use crate::sentence_service::SentenceAnalyzeService;
@@ -6,20 +8,63 @@ use tonic::transport::Server;
 use tonic_reflection::server::Builder;
 use tonic_web::GrpcWebLayer;
 use tower_http::cors::{Any, CorsLayer};
-use tracing::info;
+use tracing::{error, info, warn};
 
 pub async fn start_sentence_grpc_server(
     provider: Arc<dyn ModelProvider>,
     api_url: Option<String>,
     default_email: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let addr = "0.0.0.0:50053".parse()?;
+    // Load server configuration
+    let server_config = match load_server_config().await {
+        Ok(config) => config,
+        Err(e) => {
+            error!("Failed to load server configuration: {}", e);
+            return Err(e);
+        }
+    };
+
+    // Construct the address from config
+    let server_addr = format!("{}:{}", server_config.address, server_config.port);
+    let addr = server_addr.parse()?;
+
     info!("Starting sentence analysis gRPC server on {}", addr);
 
-    if let Some(url) = &api_url {
-        info!("Using remote endpoint API at: {}", url);
-    } else {
-        info!("Using local endpoints file");
+    // Check if endpoints are available - REQUIRED for startup
+    match verify_endpoints_configuration(api_url.clone()).await {
+        Ok(true) => {
+            info!("Endpoint configuration verified - either remote service or local file is available");
+        }
+        Ok(false) => {
+            error!("FATAL: No endpoint configuration available! The server cannot start without endpoints.");
+
+            if let Some(url) = &api_url {
+                error!("Please ensure the endpoint service is running at {}", url);
+            } else {
+                error!("Please start with --api URL to connect to an endpoint service");
+            }
+
+            error!("Alternatively, place an endpoints.yaml file in the current directory.");
+            return Err("No endpoint configuration available".into());
+        }
+        Err(e) => {
+            error!("Error checking endpoint configuration: {}", e);
+            return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Failed to verify endpoint configuration: {}", e),
+            )));
+        }
+    }
+
+    // No email check here - emails will be provided by clients at request time
+    if let Some(default) = &default_email {
+        info!(
+            "Using default email for requests without email: {}",
+            default
+        );
+    } else if api_url.is_some() {
+        // Not an error, just a warning
+        warn!("No default email provided. Clients must include email in requests.");
     }
 
     let descriptor_set = include_bytes!(concat!(env!("OUT_DIR"), "/sentence_descriptor.bin"));

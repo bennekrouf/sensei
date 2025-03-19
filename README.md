@@ -205,6 +205,65 @@ providers:
     api_key: ""     # Will be loaded from .env
 ```
 
+## GRPC Server Configuration
+
+The `config.yaml` has been updated to provide central configuration for all ports and addresses used by the system:
+
+```yaml
+# Logger configuration
+grpc:
+  address: "127.0.0.1"
+  port: 50055 # Port where your grpc-logger server is running
+
+# Main server configuration
+server:
+  address: "0.0.0.0"
+  port: 50053 # Port where your sentence gRPC server runs
+
+# Endpoint client configuration
+endpoint_client:
+  default_address: "http://localhost:50052" # Default endpoint service URL if not provided via CLI
+```
+
+### Configuration Options
+
+1. **Logger Configuration**
+   - `grpc.address`: Address for the gRPC logger service
+   - `grpc.port`: Port for the gRPC logger service
+
+2. **Server Configuration**
+   - `server.address`: Address where your gRPC server will listen
+   - `server.port`: Port where your gRPC server will listen
+
+3. **Endpoint Client Configuration**
+   - `endpoint_client.default_address`: Default URL for the remote endpoint service if not provided via CLI
+
+## CLI Overrides
+
+You can override these configuration values at runtime using the following CLI options:
+
+```
+--api URL     # Override the default endpoint service URL
+--port PORT   # Override the default gRPC server port
+```
+
+For example:
+
+```bash
+cargo run -- --provider claude --api http://custom-endpoint:5000 --port 8080
+```
+
+## Port Configuration
+
+The system uses the following ports by default:
+
+1. **50053**: Main gRPC server for sentence analysis
+2. **50055**: gRPC logger service 
+3. **50052**: Default endpoint service (if used)
+4. **11434**: Ollama API (if using Ollama provider)
+
+You can change any of these values in the `config.yaml` file.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details

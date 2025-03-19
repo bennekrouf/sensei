@@ -1,16 +1,12 @@
 use super::{
-    config::StepConfig, find_closest_endpoint::find_closest_endpoint,
-    match_fields::match_fields_semantic, sentence_to_json::sentence_to_json,
+    find_closest_endpoint::find_closest_endpoint, match_fields::match_fields_semantic,
+    sentence_to_json::sentence_to_json,
 };
-use crate::models::providers::ModelConfig;
+use crate::models::ConfigFile;
 use crate::workflow::context::WorkflowContext;
-use crate::{models::ConfigFile, prompts::PromptManager};
 use std::{error::Error, sync::Arc};
 
-pub struct JsonGenerationStep {
-    pub prompt_manager: Arc<PromptManager>,
-    pub model_config: ModelConfig,
-}
+pub struct JsonGenerationStep {}
 
 // Trait defining a workflow step
 #[async_trait]
@@ -65,12 +61,6 @@ use crate::models::EndpointParameter;
 use async_trait::async_trait;
 
 // Workflow configuration loaded from YAML
-
-// Workflow engine
-pub struct WorkflowEngine {
-    steps: Vec<(StepConfig, Arc<dyn WorkflowStep>)>,
-}
-
 pub struct FieldMatchingStep {}
 
 #[async_trait]
@@ -80,7 +70,8 @@ impl WorkflowStep for FieldMatchingStep {
         context: &mut WorkflowContext,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let (Some(json), Some(endpoint)) = (&context.json_output, &context.matched_endpoint) {
-            let semantic_results = match_fields_semantic(json, endpoint, context.provider.clone()).await?;
+            let semantic_results =
+                match_fields_semantic(json, endpoint, context.provider.clone()).await?;
 
             // Convert tuple results into Parameter structs
             let parameters = semantic_results
@@ -103,23 +94,3 @@ impl WorkflowStep for FieldMatchingStep {
         "field_matching"
     }
 }
-
-// Example workflow configuration in YAML
-pub const WORKFLOW_CONFIG: &str = r#"
-steps:
-  - name: json_generation
-    enabled: true
-    retry:
-      max_attempts: 3
-      delay_ms: 1000
-    timeout_secs: 30
-  - name: endpoint_matching
-    enabled: true
-    retry:
-      max_attempts: 2
-      delay_ms: 500
-    timeout_secs: 20
-  - name: field_matching
-    enabled: true
-    timeout_secs: 10
-"#;

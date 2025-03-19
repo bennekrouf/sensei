@@ -3,6 +3,7 @@ use clap::{Parser, ValueEnum};
 use std::{error::Error, sync::Arc};
 use tracing::info;
 
+use crate::endpoint_client::get_default_api_url;
 use crate::{analyze_sentence::analyze_sentence, models::providers::ModelProvider};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
@@ -23,18 +24,22 @@ pub struct Cli {
     /// Select which LLM provider to use: 'ollama' or 'claude'
     #[arg(long, value_enum, required = true, value_name = "TYPE")]
     pub provider: ProviderType,
-    
+
     /// Remote API endpoint for fetching endpoint definitions (optional)
     #[arg(long, value_name = "URL")]
     pub api: Option<String>,
-    
+
     /// Email address for authentication with the remote API
     #[arg(long, value_name = "EMAIL")]
     pub email: Option<String>,
+
+    /// Override gRPC server port (default from config.yaml)
+    #[arg(long, value_name = "PORT")]
+    pub port: Option<u16>,
 }
 
 pub async fn handle_cli(
-    cli: Cli,
+    mut cli: Cli,
     provider: Arc<dyn ModelProvider>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     if let Some(prompt) = cli.prompt {
@@ -47,17 +52,35 @@ pub async fn handle_cli(
             }
         };
 
+        // If API URL not provided in CLI, try to get default from config
+        if cli.api.is_none() {
+            match get_default_api_url().await {
+                Ok(url) => {
+                    info!("Using default API URL from config: {}", url);
+                    cli.api = Some(url);
+                }
+                Err(e) => {
+                    info!(
+                        "Could not get default API URL, using local endpoints: {}",
+                        e
+                    );
+                }
+            }
+        }
+
         let endpoint_source = match &cli.api {
             Some(api_url) => format!("remote API ({})", api_url),
             None => "local file".to_string(),
         };
-        
+
         info!("Using endpoints from {}", endpoint_source);
         info!("Analyzing prompt via CLI: {}", prompt);
-        
+
         // Get email from CLI or use default
-        let email = cli.email.unwrap_or_else(|| "default@example.com".to_string());
-        
+        let email = cli
+            .email
+            .unwrap_or_else(|| "default@example.com".to_string());
+
         // Pass the API URL and email to analyze_sentence
         let result = analyze_sentence(&prompt, provider, cli.api, &email).await?;
 
@@ -79,3 +102,4 @@ pub async fn handle_cli(
     }
     Ok(())
 }
+

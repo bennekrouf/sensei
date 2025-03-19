@@ -74,35 +74,6 @@ impl PromptManager {
 
         template.replace("{sentence}", sentence)
     }
-
-    pub fn format_match_fields(
-        &self,
-        input_fields: &str,
-        parameters: &str,
-        version: Option<&str>,
-    ) -> String {
-        let template = self.get_prompt("match_fields", version).unwrap_or_default();
-
-        template
-            .replace("{input_fields}", input_fields)
-            .replace("{parameters}", parameters)
-    }
-
-    /// Lists available versions for a prompt
-    pub fn list_versions(&self, prompt_name: &str) -> Option<Vec<String>> {
-        self.config
-            .prompts
-            .get(prompt_name)
-            .map(|p| p.versions.keys().cloned().collect())
-    }
-
-    /// Gets the default version for a prompt
-    pub fn get_default_version(&self, prompt_name: &str) -> Option<String> {
-        self.config
-            .prompts
-            .get(prompt_name)
-            .map(|p| p.default_version.clone())
-    }
 }
 
 #[cfg(test)]

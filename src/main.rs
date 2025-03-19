@@ -2,45 +2,43 @@
 mod analyze_sentence;
 mod call_ollama;
 mod cli;
+mod endpoint_client;
 mod grpc_server;
 mod json_helper;
 mod models;
 mod prompts;
 mod sentence_service;
-mod endpoint_client; 
 
 use std::sync::Arc;
 mod workflow;
 use crate::models::config::load_models_config;
-use crate::models::providers::{ModelProvider, ProviderConfig};
-use crate::models::providers::claude::ClaudeProvider;
-use crate::models::providers::ollama::OllamaProvider;
+use crate::models::providers::{create_provider, ModelProvider, ProviderConfig};
 use cli::ProviderType;
 
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{EnvFilter, Registry};
 use clap::Parser;
 use cli::{handle_cli, Cli};
 use dotenv::dotenv;
+use endpoint_client::get_default_api_url;
 use grpc_logger::load_config;
-use grpc_logger::LogConfig;
 use grpc_server::start_sentence_grpc_server;
 use std::env;
 use std::error::Error;
 use tokio::signal;
 use tracing::{error, info};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, Registry};
 
 #[derive(Clone)]
 pub struct AppState {
-    provider: Arc<dyn ModelProvider>,
-    log_config: Arc<LogConfig>,
-    api_url: Option<String>,
+    //provider: Arc<dyn ModelProvider>,
+    //log_config: Arc<LogConfig>,
+    //api_url: Option<String>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let log_config = load_config("config.yaml")?;
+    let _log_config = load_config("config.yaml")?;
 
     Registry::default()
         .with(tracing_subscriber::fmt::layer())
@@ -52,8 +50,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         Ok(cli) => cli,
         Err(e) => {
             // Enhance error message for missing provider
-            if e.to_string().contains("required arguments were not provided") && 
-               e.to_string().contains("--provider") {
+            if e.to_string()
+                .contains("required arguments were not provided")
+                && e.to_string().contains("--provider")
+            {
                 eprintln!("ERROR: You must specify which provider to use!");
                 eprintln!("Options: --provider ollama   (for local Ollama instance)");
                 eprintln!("         --provider claude   (for Claude API, requires API key)");
@@ -67,11 +67,11 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     };
 
     // Load model configuration
-    let models_config = load_models_config().await?;
+    let _models_config = load_models_config().await?;
 
     // Initialize provider based on CLI provider type
     let use_claude = matches!(cli.provider, ProviderType::Claude);
-    
+
     // Create the provider
     let provider: Box<dyn ModelProvider> = if use_claude {
         // Load .env file and check for Claude API key
@@ -83,9 +83,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                     enabled: true,
                     api_key: Some(api_key),
                     host: None,
-                    models: models_config.clone(),
                 };
-                Box::new(ClaudeProvider::new(&config))
+                create_provider(&config).expect("Failed to create Claude provider")
             }
             Err(_) => {
                 error!("Claude API key not found in .env file. Please add CLAUDE_API_KEY to .env");
@@ -99,19 +98,36 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             enabled: true,
             host: Some("http://localhost:11434".to_string()),
             api_key: None,
-            models: models_config.clone(),
         };
-        Box::new(OllamaProvider::new(&config))
+        create_provider(&config).expect("Failed to create Ollama provider")
     };
 
     // Wrap the provider in an Arc so we can clone it
     let provider_arc: Arc<dyn ModelProvider> = Arc::from(provider);
 
-    let app_state = AppState {
-        provider: provider_arc.clone(),
-        log_config: Arc::new(log_config),
-        api_url: cli.api.clone(),
+    // Get API URL from CLI or config
+    let api_url = if let Some(url) = cli.api.clone() {
+        Some(url)
+    } else {
+        // Only get default if we're not in CLI prompt mode
+        if cli.prompt.is_none() {
+            match get_default_api_url().await {
+                Ok(url) => Some(url),
+                Err(e) => {
+                    error!("Failed to get default API URL: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        }
     };
+
+    //let app_state = AppState {
+    //    provider: provider_arc.clone(),
+    //    log_config: Arc::new(log_config),
+    //    api_url: api_url.clone(),
+    //};
 
     // Handle CLI command if present, otherwise start gRPC server
     match cli.prompt {
@@ -121,13 +137,18 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         None => {
             let provider_name = match cli.provider {
                 ProviderType::Claude => "Claude API",
-                ProviderType::Ollama => "Ollama self-hosted models"
+                ProviderType::Ollama => "Ollama self-hosted models",
             };
-            info!("No prompt provided, starting gRPC server with {}...", provider_name);
+            info!(
+                "No prompt provided, starting gRPC server with {}...",
+                provider_name
+            );
 
             // Start the gRPC server with our API URL if provided
             let grpc_server = tokio::spawn(async move {
-                if let Err(e) = start_sentence_grpc_server(provider_arc.clone(), app_state.api_url, cli.email).await {
+                if let Err(e) =
+                    start_sentence_grpc_server(provider_arc.clone(), api_url, cli.email).await
+                {
                     error!("gRPC server error: {:?}", e);
                 }
             });
