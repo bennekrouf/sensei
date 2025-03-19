@@ -1,9 +1,8 @@
 pub mod config;
 pub mod providers;
 
-pub use providers::{ModelConfig, ModelsConfig};
+pub use providers::ModelsConfig;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 
 #[derive(Serialize, Debug)]
 pub struct GenerateRequest {
@@ -17,7 +16,7 @@ pub struct GenerateRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct OllamaResponse {
-    pub response: String,
+    //pub response: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -42,10 +41,4 @@ pub struct ConfigFile {
     pub endpoints: Vec<Endpoint>,
 }
 
-impl ConfigFile {
-    pub async fn load() -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let config_str = tokio::fs::read_to_string("endpoints.yaml").await?;
-        let config: ConfigFile = serde_yaml::from_str(&config_str)?;
-        Ok(config)
-    }
-}
+impl ConfigFile {}

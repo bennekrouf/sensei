@@ -20,19 +20,27 @@ use tracing::Instrument;
 pub struct SentenceAnalyzeService {
     provider: Arc<dyn ModelProvider>,
     api_url: Option<String>,
-default_email: Option<String>, 
+    default_email: Option<String>,
 }
 
 impl SentenceAnalyzeService {
     // Add a constructor to store the provider and API URL
-    pub fn new(provider: Arc<dyn ModelProvider>, api_url: Option<String>, default_email: Option<String>) -> Self {
-        Self { provider, api_url, default_email}
+    pub fn new(
+        provider: Arc<dyn ModelProvider>,
+        api_url: Option<String>,
+        default_email: Option<String>,
+    ) -> Self {
+        Self {
+            provider,
+            api_url,
+            default_email,
+        }
     }
 
     // For backward compatibility, but not recommended
-    pub fn default() -> Self {
-        panic!("SentenceAnalyzeService::default() is not supported. Use SentenceAnalyzeService::new() instead.");
-    }
+    //pub fn default() -> Self {
+    //    panic!("SentenceAnalyzeService::default() is not supported. Use SentenceAnalyzeService::new() instead.");
+    //}
 
     // Helper function to extract client_id from metadata
     fn get_client_id(metadata: &MetadataMap) -> String {
@@ -42,7 +50,7 @@ impl SentenceAnalyzeService {
             .unwrap_or("unknown-client")
             .to_string()
     }
-    
+
     // Helper function to extract email from metadata
     fn get_email(metadata: &MetadataMap) -> String {
         metadata
@@ -81,14 +89,15 @@ impl SentenceService for SentenceAnalyzeService {
         let client_id = Self::get_client_id(&metadata);
         // Extract email from metadata or use CLI-provided one
         let email = match Self::get_email(&metadata) {
-            email if email == "unknown@example.com" && self.default_email.is_some() => 
-                self.default_email.clone().unwrap(),
-            email => email
+            email if email == "unknown@example.com" && self.default_email.is_some() => {
+                self.default_email.clone().unwrap()
+            }
+            email => email,
         };
-        
+
         let input_sentence = request.into_inner().sentence;
         tracing::info!(
-            input_sentence = %input_sentence, 
+            input_sentence = %input_sentence,
             email = %email,
             "Processing sentence request"
         );
@@ -108,7 +117,7 @@ impl SentenceService for SentenceAnalyzeService {
 
         let (tx, rx) = mpsc::channel(10);
         let analyze_span = tracing::info_span!(
-            "analyze_sentence", 
+            "analyze_sentence",
             client_id = %client_id,
             email = %email
         );
@@ -119,14 +128,19 @@ impl SentenceService for SentenceAnalyzeService {
 
         tokio::spawn(async move {
             // Pass the input_sentence, provider, API URL, and email to analyze_sentence
-            let result = analyze_sentence(&input_sentence, provider_clone, api_url_clone, &email)
-                .instrument(analyze_span)
-                .await;
+            let result = analyze_sentence(
+                &input_sentence,
+                provider_clone,
+                api_url_clone.clone(),
+                &email,
+            )
+            .instrument(analyze_span)
+            .await;
 
             match result {
                 Ok(result) => {
                     tracing::info!(
-                        client_id = %client_id, 
+                        client_id = %client_id,
                         email = %email,
                         "Analysis completed"
                     );
@@ -161,7 +175,7 @@ impl SentenceService for SentenceAnalyzeService {
 
                     if tx.send(Ok(response)).await.is_err() {
                         tracing::error!(
-                            client_id = %client_id, 
+                            client_id = %client_id,
                             email = %email,
                             "Failed to send response - stream closed"
                         );
@@ -176,9 +190,32 @@ impl SentenceService for SentenceAnalyzeService {
                         "Analysis failed"
                     );
 
-                    let _ = tx
-                        .send(Err(Status::internal(format!("Analysis failed: {}", e))))
-                        .await;
+                    // Improved error handling: categorize errors for better client messages
+                    let status = if e
+                        .to_string()
+                        .contains("No endpoint configuration available")
+                        || e.to_string().contains("endpoints.yaml file not found")
+                    {
+                        Status::failed_precondition(format!(
+                            "Endpoint configuration is not available. The endpoint service is not running and no local endpoints file was found. Please ensure either the endpoint service is running at {} or an endpoints.yaml file exists.",
+                            api_url_clone.unwrap_or_else(|| "the configured URL".to_string())
+                        ))
+                    } else if e.to_string().contains("No matching endpoint found") {
+                        Status::not_found(format!(
+                            "No endpoint matching your input was found: {}",
+                            e
+                        ))
+                    } else {
+                        Status::internal(format!("Analysis failed: {}", e))
+                    };
+
+                    if tx.send(Err(status)).await.is_err() {
+                        tracing::error!(
+                            client_id = %client_id,
+                            email = %email,
+                            "Failed to send error response - stream closed"
+                        );
+                    }
                 }
             }
         });

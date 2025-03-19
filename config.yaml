@@ -3,8 +3,18 @@ level: info
 server_id: "semantic-service"  # Identifies this service in the logs
 client_id: "semantic-service"
 grpc:
+  # Keep original fields for logger compatibility
   address: "127.0.0.1"
   port: 50055 # Port where your grpc-logger server is running
+
+# Add our new server configuration
+server:
+  address: "0.0.0.0"
+  port: 50053 # Port where your sentence gRPC server runs
+
+# Add endpoint client configuration
+endpoint_client:
+  default_address: "http://localhost:50052" # Default endpoint service URL if not provided via CLI
 log_fields:
   include_thread_id: true
   include_target: true

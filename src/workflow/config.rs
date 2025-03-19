@@ -10,7 +10,6 @@ pub struct StepConfig {
     pub name: String,
     pub enabled: bool,
     pub retry: Option<RetryConfig>,
-    pub timeout_secs: Option<u64>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

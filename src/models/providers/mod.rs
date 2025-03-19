@@ -24,14 +24,11 @@ pub struct ProviderConfig {
     pub enabled: bool,
     pub host: Option<String>,
     pub api_key: Option<String>,
-    pub models: ModelsConfig, 
+    //pub models: ModelsConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct ProvidersConfig {
-    pub ollama: ProviderConfig,
-    pub claude: ProviderConfig,
-}
+pub struct ProvidersConfig {}
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ModelConfig {
@@ -49,29 +46,20 @@ pub struct ModelConfig {
 pub struct ModelsConfig {
     pub sentence_to_json: ModelConfig,
     pub find_endpoint: ModelConfig,
-    pub semantic_match: ModelConfig,
 }
 
-use dotenv::dotenv;
-
-// Initialize environment
-pub fn init_environment() -> Result<(), Box<dyn Error + Send + Sync>> {
-    dotenv().ok();
-    Ok(())
-}
-
-// Factory function to create provider instance
 pub fn create_provider(config: &ProviderConfig) -> Option<Box<dyn ModelProvider>> {
-    match config.enabled {
-        true => {
-            if config.api_key.is_some() {
-                Some(Box::new(claude::ClaudeProvider::new(config)))
-            } else if config.host.is_some() {
-                Some(Box::new(ollama::OllamaProvider::new(config)))
-            } else {
-                None
-            }
-        }
-        false => None,
+    // We check the enabled flag to avoid warnings about it not being used
+    if !config.enabled {
+        return None;
+    }
+
+    // Use the provider determination logic
+    if config.api_key.is_some() {
+        Some(Box::new(claude::ClaudeProvider::new(config)))
+    } else if config.host.is_some() {
+        Some(Box::new(ollama::OllamaProvider::new(config)))
+    } else {
+        None
     }
 }

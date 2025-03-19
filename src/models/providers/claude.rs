@@ -1,4 +1,4 @@
-// src/models/providers/claude.rs
+// src/models/providers/claude.rs - Update ClaudeProvider
 
 use super::{ModelConfig, ModelProvider, ProviderConfig, ProviderSelector};
 use async_trait::async_trait;
@@ -26,6 +26,11 @@ struct Message {
 
 impl ClaudeProvider {
     pub fn new(config: &ProviderConfig) -> Self {
+        // Check if enabled to keep compiler happy
+        if !config.enabled {
+            debug!("Creating Claude provider, but it's disabled in config");
+        }
+
         Self {
             api_key: config
                 .api_key
@@ -43,10 +48,10 @@ impl ModelProvider for ClaudeProvider {
         config: &ModelConfig,
     ) -> Result<String, Box<dyn Error + Send + Sync>> {
         debug!("Generating response with Claude API");
-        
+
         // Get the appropriate Claude model name
         let model_name = ProviderSelector::get_model_name(config, true);
-        
+
         let request = ClaudeRequest {
             model: model_name,
             messages: vec![Message {
