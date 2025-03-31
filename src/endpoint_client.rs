@@ -1,86 +1,12 @@
-// src/endpoint_client.rs
-use crate::models::config::load_endpoint_client_config;
-use std::error::Error;
-use tonic::transport::Channel;
-use tracing::{error, info, warn};
-
 pub mod endpoint {
     tonic::include_proto!("endpoint");
 }
-
+use crate::models::config::load_endpoint_client_config;
 use endpoint::endpoint_service_client::EndpointServiceClient;
-use endpoint::{Endpoint, GetEndpointsRequest};
-
-/// Fetch endpoints from remote gRPC service
-pub async fn fetch_remote_endpoints(
-    addr: String,
-    email: &str,
-) -> Result<Vec<Endpoint>, Box<dyn Error + Send + Sync>> {
-    info!("Connecting to remote endpoint service at {}", addr);
-
-    // Create a channel to the server
-    let channel = match Channel::from_shared(addr).map(|c| {
-        c.connect_timeout(std::time::Duration::from_secs(5))
-            .timeout(std::time::Duration::from_secs(10))
-    }) {
-        Ok(channel) => match channel.connect().await {
-            Ok(ch) => ch,
-            Err(e) => {
-                error!("Failed to connect to endpoint service: {}", e);
-                return Err(Box::new(e));
-            }
-        },
-        Err(e) => {
-            error!("Failed to create channel: {}", e);
-            return Err(Box::new(e));
-        }
-    };
-
-    // Create the gRPC client
-    let mut client = EndpointServiceClient::new(channel);
-
-    // Prepare the request
-    let request = tonic::Request::new(GetEndpointsRequest {
-        email: email.to_string(),
-    });
-
-    info!("Fetching endpoints for email: {}", email);
-
-    // Make the streaming call - FIXED METHOD NAME HERE
-    let mut stream = match client.get_endpoints(request).await {
-        Ok(response) => response.into_inner(),
-        Err(e) => {
-            error!("Failed to get endpoints from service: {}", e);
-            return Err(format!("Failed to get endpoints from service: {}", e).into());
-        }
-    };
-
-    // Collect all endpoints from the stream
-    let mut endpoints = Vec::new();
-
-    while let Some(response) = match stream.message().await {
-        Ok(maybe_response) => maybe_response,
-        Err(e) => {
-            error!("Error receiving endpoint stream: {}", e);
-            return Err(format!("Error receiving endpoint stream: {}", e).into());
-        }
-    } {
-        info!("Received batch of {} endpoints", response.endpoints.len());
-        endpoints.extend(response.endpoints);
-    }
-
-    info!(
-        "Successfully fetched {} endpoints from remote service",
-        endpoints.len()
-    );
-
-    if endpoints.is_empty() {
-        warn!("Remote service returned 0 endpoints for email: {}", email);
-    }
-
-    Ok(endpoints)
-}
-
+use endpoint::{Endpoint, GetApiGroupsRequest};
+use std::error::Error;
+use tonic::transport::Channel;
+use tracing::{error, info, warn};
 /// Get the default API URL from configuration if not provided via CLI
 pub async fn get_default_api_url() -> Result<String, Box<dyn Error + Send + Sync>> {
     let endpoint_client_config = load_endpoint_client_config().await?;
@@ -89,25 +15,30 @@ pub async fn get_default_api_url() -> Result<String, Box<dyn Error + Send + Sync
 
 // Convert gRPC Endpoint to our internal Endpoint structure
 pub fn convert_remote_endpoints(
-    remote_endpoints: Vec<endpoint::Endpoint>,
+    api_groups: Vec<endpoint::ApiGroup>,
 ) -> Vec<crate::models::Endpoint> {
-    remote_endpoints
+    api_groups
         .into_iter()
-        .map(|re| crate::models::Endpoint {
-            id: re.id,
-            text: re.text,
-            description: re.description,
-            parameters: re
-                .parameters
+        .flat_map(|group| {
+            group
+                .endpoints
                 .into_iter()
-                .map(|rp| crate::models::EndpointParameter {
-                    name: rp.name,
-                    description: rp.description,
-                    required: Some(rp.required),
-                    alternatives: Some(rp.alternatives),
-                    semantic_value: None,
+                .map(move |re| crate::models::Endpoint {
+                    id: re.id,
+                    text: re.text,
+                    description: re.description,
+                    parameters: re
+                        .parameters
+                        .into_iter()
+                        .map(|rp| crate::models::EndpointParameter {
+                            name: rp.name,
+                            description: rp.description,
+                            required: Some(rp.required),
+                            alternatives: Some(rp.alternatives),
+                            semantic_value: None,
+                        })
+                        .collect(),
                 })
-                .collect(),
         })
         .collect()
 }
@@ -118,7 +49,6 @@ pub async fn check_endpoint_service_health(
 ) -> Result<bool, Box<dyn Error + Send + Sync>> {
     info!("Checking health of endpoint service at {}", addr);
 
-    // Try to create a channel to the server
     match Channel::from_shared(addr.to_string()) {
         Ok(channel) => match channel.connect().await {
             Ok(_) => {
@@ -141,74 +71,69 @@ pub async fn check_endpoint_service_health(
 pub async fn verify_endpoints_configuration(
     api_url: Option<String>,
 ) -> Result<bool, Box<dyn Error + Send + Sync>> {
-    // First check if remote API is available
+    // Only check remote endpoint service
     if let Some(url) = &api_url {
         match check_endpoint_service_health(url).await {
             Ok(true) => {
                 info!("Remote endpoint service is available at {}", url);
-                return Ok(true);
+                Ok(true)
             }
-            Ok(false) => {
-                warn!("Remote endpoint service at {} is not available", url);
-                info!("Checking for local endpoints file instead");
-            }
-            Err(e) => {
-                warn!("Error checking endpoint service: {}", e);
-                // Continue to check local file
-            }
+            _ => Err(format!("Endpoint service is not available at {}", url).into()),
         }
     } else {
-        info!("No remote endpoint service configured, checking for local endpoints file");
+        Err("No remote endpoint service URL provided".into())
+    }
+}
+
+// Optional: function to get default endpoints for development
+pub async fn get_default_endpoints(
+    addr: &str,
+    email: &str,
+) -> Result<Vec<endpoint::Endpoint>, Box<dyn Error + Send + Sync>> {
+    // Create a channel to the server
+    let channel = Channel::from_shared(addr.to_string())?
+        .connect_timeout(std::time::Duration::from_secs(5))
+        .timeout(std::time::Duration::from_secs(10))
+        .connect()
+        .await?;
+
+    // Create the gRPC client
+    let mut client = EndpointServiceClient::new(channel);
+
+    // Prepare the request
+    let request = tonic::Request::new(GetApiGroupsRequest {
+        email: email.to_string(),
+    });
+
+    info!("Fetching API groups for email: {}", email);
+
+    // Make the streaming call
+    let response = client.get_api_groups(request).await?;
+    let mut stream = response.into_inner();
+
+    let mut api_groups = Vec::new();
+
+    // Collect all API groups from the stream
+    while let Some(response) = stream.message().await? {
+        info!("Received batch of {} API groups", response.api_groups.len());
+        api_groups.extend(response.api_groups);
     }
 
-    // Then check if local file exists
-    match tokio::fs::metadata("endpoints.yaml").await {
-        Ok(metadata) => {
-            if metadata.is_file() {
-                info!("Local endpoints file exists");
+    // Collect all endpoints from all groups
+    let all_endpoints: Vec<Endpoint> = api_groups
+        .iter()
+        .flat_map(|group| group.endpoints.clone())
+        .collect();
 
-                // Additional check to ensure file has content
-                match tokio::fs::read_to_string("endpoints.yaml").await {
-                    Ok(content) => {
-                        if content.trim().is_empty() {
-                            warn!("endpoints.yaml exists but is empty");
-                            return Ok(false);
-                        }
+    info!(
+        "Successfully fetched {} endpoints from {} API groups",
+        all_endpoints.len(),
+        api_groups.len()
+    );
 
-                        // Basic validation of YAML structure
-                        match serde_yaml::from_str::<serde_yaml::Value>(&content) {
-                            Ok(_) => {
-                                info!("endpoints.yaml is valid YAML");
-                                return Ok(true);
-                            }
-                            Err(e) => {
-                                warn!("endpoints.yaml contains invalid YAML: {}", e);
-                                return Ok(false);
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        error!("Error reading endpoints.yaml: {}", e);
-                        return Err(Box::new(e));
-                    }
-                }
-            } else {
-                warn!("endpoints.yaml exists but is not a file");
-                return Ok(false);
-            }
-        }
-        Err(e) => {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                if api_url.is_some() {
-                    error!("Remote endpoint service unavailable and no local endpoints.yaml file found");
-                } else {
-                    error!("No local endpoints.yaml file found and no remote service configured");
-                }
-                return Ok(false);
-            } else {
-                error!("Error checking for local endpoints file: {}", e);
-                return Err(Box::new(e));
-            }
-        }
+    if all_endpoints.is_empty() {
+        warn!("Remote service returned 0 endpoints for email: {}", email);
     }
+
+    Ok(all_endpoints)
 }

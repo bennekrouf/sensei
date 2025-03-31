@@ -30,6 +30,8 @@ log_all_messages: false
 debug_mode:
   enabled: false
   test_interval_secs: 10
+  use_local_endpoints: false
+
 
 # Model configurations
 models:
