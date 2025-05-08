@@ -20,27 +20,35 @@ use tracing::Instrument;
 pub struct SentenceAnalyzeService {
     provider: Arc<dyn ModelProvider>,
     api_url: Option<String>,
-    default_email: Option<String>,
 }
 
 impl SentenceAnalyzeService {
     // Add a constructor to store the provider and API URL
-    pub fn new(
-        provider: Arc<dyn ModelProvider>,
-        api_url: Option<String>,
-        default_email: Option<String>,
-    ) -> Self {
-        Self {
-            provider,
-            api_url,
-            default_email,
-        }
+    pub fn new(provider: Arc<dyn ModelProvider>, api_url: Option<String>) -> Self {
+        Self { provider, api_url }
     }
 
-    // For backward compatibility, but not recommended
-    //pub fn default() -> Self {
-    //    panic!("SentenceAnalyzeService::default() is not supported. Use SentenceAnalyzeService::new() instead.");
-    //}
+    // Get email from metadata with validation
+    fn get_email_validated(&self, metadata: &MetadataMap) -> Result<String, tonic::Status> {
+        let email = metadata
+            .get("email")
+            .and_then(|v| v.to_str().ok())
+            .ok_or_else(|| {
+                tonic::Status::invalid_argument(
+                    "Email is required in request metadata. Add 'email' header to your request.",
+                )
+            })?
+            .to_string();
+
+        // Use the utility function for validation
+        match crate::utils::email::validate_email(&email) {
+            Ok(_) => Ok(email),
+            Err(e) => Err(tonic::Status::invalid_argument(format!(
+                "Email validation failed: {}",
+                e
+            ))),
+        }
+    }
 
     // Helper function to extract client_id from metadata
     fn get_client_id(metadata: &MetadataMap) -> String {
@@ -48,15 +56,6 @@ impl SentenceAnalyzeService {
             .get("client-id")
             .and_then(|v| v.to_str().ok())
             .unwrap_or("unknown-client")
-            .to_string()
-    }
-
-    // Helper function to extract email from metadata
-    fn get_email(metadata: &MetadataMap) -> String {
-        metadata
-            .get("email")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("unknown@example.com")
             .to_string()
     }
 }
@@ -88,11 +87,12 @@ impl SentenceService for SentenceAnalyzeService {
 
         let client_id = Self::get_client_id(&metadata);
         // Extract email from metadata or use CLI-provided one
-        let email = match Self::get_email(&metadata) {
-            email if email == "unknown@example.com" && self.default_email.is_some() => {
-                self.default_email.clone().unwrap()
+        let email = match self.get_email_validated(&metadata) {
+            Ok(email) => email,
+            Err(status) => {
+                tracing::error!("Email validation failed: {}", status);
+                return Err(status);
             }
-            email => email,
         };
 
         let input_sentence = request.into_inner().sentence;

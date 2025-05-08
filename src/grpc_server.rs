@@ -8,12 +8,12 @@ use tonic::transport::Server;
 use tonic_reflection::server::Builder;
 use tonic_web::GrpcWebLayer;
 use tower_http::cors::{Any, CorsLayer};
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
+// In src/grpc_server.rs
 pub async fn start_sentence_grpc_server(
     provider: Arc<dyn ModelProvider>,
     api_url: Option<String>,
-    default_email: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Load server configuration
     let server_config = match load_server_config().await {
@@ -37,14 +37,6 @@ pub async fn start_sentence_grpc_server(
         }
         Ok(false) => {
             error!("FATAL: No endpoint configuration available! The server cannot start without endpoints.");
-
-            if let Some(url) = &api_url {
-                error!("Please ensure the endpoint service is running at {}", url);
-            } else {
-                error!("Please start with --api URL to connect to an endpoint service");
-            }
-
-            error!("Alternatively, place an endpoints.yaml file in the current directory.");
             return Err("No endpoint configuration available".into());
         }
         Err(e) => {
@@ -56,16 +48,7 @@ pub async fn start_sentence_grpc_server(
         }
     }
 
-    // No email check here - emails will be provided by clients at request time
-    if let Some(default) = &default_email {
-        info!(
-            "Using default email for requests without email: {}",
-            default
-        );
-    } else if api_url.is_some() {
-        // Not an error, just a warning
-        warn!("No default email provided. Clients must include email in requests.");
-    }
+    info!("Email is required for each request - no defaults will be used");
 
     let descriptor_set = include_bytes!(concat!(env!("OUT_DIR"), "/sentence_descriptor.bin"));
     let reflection_service = Builder::configure()
@@ -82,7 +65,7 @@ pub async fn start_sentence_grpc_server(
     tracing::info!("Starting semantic gRPC server on {}", addr);
 
     // Use the provider that was passed in from main.rs
-    let sentence_service = SentenceAnalyzeService::new(provider, api_url, default_email);
+    let sentence_service = SentenceAnalyzeService::new(provider, api_url);
     let service = SentenceServiceServer::new(sentence_service);
 
     match Server::builder()

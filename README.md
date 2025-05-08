@@ -1,4 +1,4 @@
-# APICheck
+# Semantic
 
 A tool that uses LLM to match user inputs with predefined API endpoints based on semantic understanding.
 
@@ -12,8 +12,8 @@ A tool that uses LLM to match user inputs with predefined API endpoints based on
 
 1. Clone and build:
 ```bash
-git clone git@github.com:bennekrouf/apicheck.git
-cd apicheck
+git clone git@github.com:bennekrouf/semantic.git
+cd semantic
 cargo install --path .
 ```
 
@@ -43,227 +43,53 @@ openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -node
 
 ## Usage
 
-After installation, you can use `apicheck` in several ways:
+⚠️ **IMPORTANT**: Email is required ONLY when analyzing sentences in CLI mode. It is not needed when starting the gRPC server.
 
-### CLI Mode with Local Endpoints
+### CLI Mode with Local Endpoints (email required)
 ```bash
 # Analyze a sentence with Ollama
-apicheck --provider ollama "schedule a meeting tomorrow at 2pm with John"
+semantic --provider ollama --email user@example.com "schedule a meeting tomorrow at 2pm with John"
 
-# Analyze a sentence with Claude
-apicheck --provider claude "schedule a meeting tomorrow at 2pm with John"
+# Analyze a sentence with Claude (default provider)
+semantic --email user@example.com "schedule a meeting tomorrow at 2pm with John"
 ```
 
-### CLI Mode with Remote Endpoints
+### CLI Mode with Remote Endpoints (email required)
 ```bash
 # Use a remote gRPC endpoint service for fetching endpoints
-apicheck --provider claude --api http://example.com:50053 "schedule a meeting tomorrow at 2pm with John"
-
-# With email authentication
-apicheck --provider claude --api http://example.com:50053 --email user@example.com "schedule a meeting tomorrow at 2pm with John"
+semantic --provider claude --api http://example.com:50053 --email user@example.com "schedule a meeting tomorrow at 2pm with John"
 ```
 
-### gRPC Server Mode
+### gRPC Server Mode (email not required)
 ```bash
 # Start the gRPC server with Ollama (using local endpoints)
-apicheck --provider ollama
+semantic --provider ollama
 
-# Start the gRPC server with Claude (using local endpoints)
-apicheck --provider claude
+# Start the gRPC server with Claude (default provider, using local endpoints)
+semantic
 
-# Start the gRPC server with Claude (using remote endpoints)
-apicheck --provider claude --api http://example.com:50053
+# Start the gRPC server with remote endpoints
+semantic --provider claude --api http://example.com:50053
 ```
 
 ### Help
 ```bash
 # Show help
-apicheck --help
+semantic --help
 ```
 
-⚠️ **IMPORTANT**: The `--provider` argument is required and must be one of:
-- `ollama` - Use local Ollama instance (default host: localhost:11434)
-- `claude` - Use Claude API (requires API key in .env file)
+⚠️ **IMPORTANT**: The following arguments are required in specific contexts:
+- `--provider` - Optional, defaults to 'claude'
+  - `ollama` - Use local Ollama instance (default host: localhost:11434)
+  - `claude` - Use Claude API (requires API key in .env file)
+- `--email` - Required ONLY when analyzing a sentence in CLI mode
 
-## Remote Endpoint Service
+## Client Authentication
 
-APICheck can now use a remote gRPC endpoint service to fetch the list of endpoints instead of using a local file. The remote service must implement the following gRPC service:
-
-```protobuf
-syntax = "proto3";
-package endpoint;
-
-service EndpointService {
-    rpc GetDefaultEndpoints (GetEndpointsRequest) returns (stream GetEndpointsResponse);
-    rpc UploadEndpoints (UploadEndpointsRequest) returns (UploadEndpointsResponse);
-}
-
-message GetEndpointsRequest {
-    string email = 1;
-}
-
-message Parameter {
-    string name = 1;
-    string description = 2;
-    bool required = 3;
-    repeated string alternatives = 4;
-}
-
-message Endpoint {
-    string id = 1;
-    string text = 2;
-    string description = 3;
-    repeated Parameter parameters = 4;
-    string verb = 5;
-}
-
-message GetEndpointsResponse {
-    repeated Endpoint endpoints = 1;
-}
-
-message UploadEndpointsRequest {
-    string email = 1;
-    bytes file_content = 2;
-    string file_name = 3;
-}
-
-message UploadEndpointsResponse {
-    bool success = 1;
-    string message = 2;
-    int32 imported_count = 3;
-}
-```
-
-### Client Authentication
-
-When using a remote endpoint service, you can specify an email address for authentication:
-
-```bash
-apicheck --provider claude --api http://example.com:50053 --email user@example.com "analyze this sentence"
-```
-
-For gRPC clients connecting to the APICheck server, you can provide the email in the metadata:
+When connecting to the Semantic server with a gRPC client, you must provide an email in the metadata for each request:
 
 ```
 email: user@example.com
 ```
 
-## Sequence of Operation
-
-1. When using the `--api` flag, APICheck will attempt to fetch endpoints from the specified remote service
-2. If the remote service is unavailable, it will fall back to the local `endpoints.yaml` file
-3. The email will be passed to the remote service for authentication (if provided)
-4. The rest of the analysis works the same way as with local endpoints
-
-## Configuration
-
-1. Create a `endpoints.yaml` file in your working directory with your endpoint definitions (used as fallback):
-
-```yaml
-endpoints:
-  - id: schedule_meeting
-    text: schedule meeting
-    description: Schedule a meeting with specified participants
-    parameters:
-      - name: time
-        description: Meeting time and date
-        required: true
-      - name: participants
-        description: List of attendees
-        required: true
-  - id: ....
-```
-
-2. Update your `config.yaml` to specify provider-specific model names:
-
-```yaml
-# Model configurations with provider-specific model names
-models:
-  sentence_to_json:
-    ollama: "llama2"
-    claude: "claude-3-7-sonnet-20250219"
-    temperature: 0.1
-    max_tokens: 1000
-  find_endpoint:
-    ollama: "deepseek-r1:8b"
-    claude: "claude-3-7-sonnet-20250219"
-    temperature: 0.1
-    max_tokens: 500
-  semantic_match:
-    ollama: "deepseek-r1:8b"
-    claude: "claude-3-7-sonnet-20250219"
-    temperature: 0.1
-    max_tokens: 500
-
-# Provider configurations
-providers:
-  ollama:
-    enabled: true
-    host: "http://localhost:11434"
-  claude:
-    enabled: false  # Will be overridden by CLI flag
-    api_key: ""     # Will be loaded from .env
-```
-
-## GRPC Server Configuration
-
-The `config.yaml` has been updated to provide central configuration for all ports and addresses used by the system:
-
-```yaml
-# Logger configuration
-grpc:
-  address: "127.0.0.1"
-  port: 50055 # Port where your grpc-logger server is running
-
-# Main server configuration
-server:
-  address: "0.0.0.0"
-  port: 50053 # Port where your sentence gRPC server runs
-
-# Endpoint client configuration
-endpoint_client:
-  default_address: "http://localhost:50052" # Default endpoint service URL if not provided via CLI
-```
-
-### Configuration Options
-
-1. **Logger Configuration**
-   - `grpc.address`: Address for the gRPC logger service
-   - `grpc.port`: Port for the gRPC logger service
-
-2. **Server Configuration**
-   - `server.address`: Address where your gRPC server will listen
-   - `server.port`: Port where your gRPC server will listen
-
-3. **Endpoint Client Configuration**
-   - `endpoint_client.default_address`: Default URL for the remote endpoint service if not provided via CLI
-
-## CLI Overrides
-
-You can override these configuration values at runtime using the following CLI options:
-
-```
---api URL     # Override the default endpoint service URL
---port PORT   # Override the default gRPC server port
-```
-
-For example:
-
-```bash
-cargo run -- --provider claude --api http://custom-endpoint:5000 --port 8080
-```
-
-## Port Configuration
-
-The system uses the following ports by default:
-
-1. **50053**: Main gRPC server for sentence analysis
-2. **50055**: gRPC logger service 
-3. **50052**: Default endpoint service (if used)
-4. **11434**: Ollama API (if using Ollama provider)
-
-You can change any of these values in the `config.yaml` file.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details
+Requests without a valid email will be rejected with an error.

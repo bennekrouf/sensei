@@ -13,15 +13,24 @@ NC='\033[0m' # No Color
 test_streaming_endpoint() {
   local sentence="$1"
   local description="$2"
+  local email="$3" # Email is required, no default
+
+  # Email validation (basic check)
+  if [ -z "$email" ]; then
+    echo -e "${RED}ERROR: Email is required for all requests${NC}"
+    return 1
+  fi
 
   echo -e "${BLUE}Testing: $description${NC}"
   echo "Sentence: $sentence"
+  echo "Email: $email"
   echo "-----------------"
 
   REQUEST_PAYLOAD=$(
     cat <<EOF
 {
-    "sentence": "$sentence"
+    "sentence": "$sentence",
+    "email": "$email"
 }
 EOF
   )
@@ -33,6 +42,7 @@ EOF
   # Call gRPC streaming endpoint
   response=$(grpcurl -plaintext \
     -d "$REQUEST_PAYLOAD" \
+    -H "email: $email" \
     $HOST \
     sentence.SentenceService/AnalyzeSentence 2>&1)
 
@@ -47,8 +57,17 @@ EOF
   echo
 }
 
-# Test streaming response
-test_streaming_endpoint "Analyze this sentence" "Streaming test"
+# Test streaming response with email (required)
+test_streaming_endpoint "Analyze this sentence" "Streaming test" "test@example.com"
+
+# Test with a specific email
+test_streaming_endpoint "Analyze this sentence" "Streaming test with specific email" "custom@example.com"
+
+# Test with an invalid email
+test_streaming_endpoint "Analyze this sentence" "Streaming test with invalid email" "invalid"
+
+# Test with missing email (should fail)
+test_streaming_endpoint "Analyze this sentence" "Streaming test without email" ""
 
 # List available services (for verification)
 echo "Checking available services:"

@@ -8,6 +8,7 @@ mod json_helper;
 mod models;
 mod prompts;
 mod sentence_service;
+mod utils;
 
 use std::sync::Arc;
 mod workflow;
@@ -16,7 +17,7 @@ use crate::models::providers::{create_provider, ModelProvider, ProviderConfig};
 use cli::ProviderType;
 
 use clap::Parser;
-use cli::{handle_cli, Cli};
+use cli::{display_custom_help, handle_cli, Cli};
 use dotenv::dotenv;
 use endpoint_client::get_default_api_url;
 use grpc_logger::load_config;
@@ -40,27 +41,41 @@ pub struct AppState {
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let _log_config = load_config("config.yaml")?;
 
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() <= 1 {
+        // No arguments provided - show custom help
+        display_custom_help();
+        std::process::exit(0);
+    }
+
     Registry::default()
         .with(tracing_subscriber::fmt::layer())
         .with(EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new("INFO")))
         .init();
 
     // Parse CLI arguments
+    // In src/main.rs - Update the CLI parsing error handling
+    // Parse CLI arguments
     let cli = match Cli::try_parse() {
         Ok(cli) => cli,
         Err(e) => {
-            // Enhance error message for missing provider
-            if e.to_string()
-                .contains("required arguments were not provided")
-                && e.to_string().contains("--provider")
-            {
-                eprintln!("ERROR: You must specify which provider to use!");
-                eprintln!("Options: --provider ollama   (for local Ollama instance)");
-                eprintln!("         --provider claude   (for Claude API, requires API key)");
-                eprintln!("\nExample: cargo run -- --provider ollama");
+            // Check for missing required arguments
+            let error_str = e.to_string();
+
+            if error_str.contains("required arguments were not provided") {
+                // Provider is now default_value = "claude", so we should only get this for other args
+                eprintln!("ERROR: Required arguments missing!");
+                eprintln!("{}", error_str);
+                eprintln!("\nNOTE: When analyzing a sentence, email is required:");
+                eprintln!("  --email user@example.com");
+                eprintln!("\nExample for starting server (no email needed):");
+                eprintln!("  cargo run -- --provider ollama");
+                eprintln!("\nExample for analyzing a sentence (email required):");
+                eprintln!("  cargo run -- --provider claude --email user@example.com \"analyze this text\"");
+
                 std::process::exit(1);
             } else {
-                // Display the original error
+                // Display the original error for other issues
                 e.exit();
             }
         }
@@ -132,9 +147,11 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // Handle CLI command if present, otherwise start gRPC server
     match cli.prompt {
         Some(_) => {
+            // CLI mode with a prompt - email is required and validated in handle_cli
             handle_cli(cli, provider_arc).await?;
         }
         None => {
+            // Server mode - email is not needed
             let provider_name = match cli.provider {
                 ProviderType::Claude => "Claude API",
                 ProviderType::Ollama => "Ollama self-hosted models",
@@ -145,10 +162,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             );
 
             // Start the gRPC server with our API URL if provided
+            // Email is NOT needed for starting the server
             let grpc_server = tokio::spawn(async move {
-                if let Err(e) =
-                    start_sentence_grpc_server(provider_arc.clone(), api_url, cli.email).await
-                {
+                if let Err(e) = start_sentence_grpc_server(provider_arc.clone(), api_url).await {
                     error!("gRPC server error: {:?}", e);
                 }
             });

@@ -14,7 +14,7 @@ server:
 
 # Add endpoint client configuration
 endpoint_client:
-  default_address: "http://localhost:50055" # Default endpoint service URL if not provided via CLI
+  default_address: "http://127.0.0.1:50055" # Default endpoint service URL if not provided via CLI
 log_fields:
   include_thread_id: true
   include_target: true

@@ -6,6 +6,7 @@ use crate::models::config::load_models_config;
 use crate::models::providers::ModelProvider;
 use crate::models::ConfigFile;
 use crate::models::EndpointParameter;
+use crate::utils::email::validate_email;
 use crate::workflow::find_closest_endpoint::find_closest_endpoint;
 use crate::workflow::match_fields::match_fields_semantic;
 use crate::workflow::sentence_to_json::sentence_to_json;
@@ -40,9 +41,21 @@ impl WorkflowStep for ConfigurationLoadingStep {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         info!("Loading configurations from remote endpoint service");
 
+        // Validate email - fail early if invalid
+        if self.email.is_empty() {
+            return Err("Email is required and cannot be empty".into());
+        }
+
+        if let Err(e) = validate_email(&self.email) {
+            error!("ERROR: {}", e);
+            error!("Please provide a valid email address in the format user@example.com");
+            error!("\nExample:");
+            error!("  cargo run -- --provider ollama --email user@example.com");
+            std::process::exit(1);
+        }
+
         // Set email in context
         context.email = Some(self.email.clone());
-
         // Ensure API URL is provided
         let api_url = self.api_url.as_ref().ok_or("No API URL provided")?;
 
@@ -240,6 +253,19 @@ pub async fn analyze_sentence(
     api_url: Option<String>,
     email: &str,
 ) -> Result<AnalysisResult, Box<dyn Error + Send + Sync>> {
+    // Validate email before proceeding
+    if email.is_empty() {
+        return Err("Email is required and cannot be empty".into());
+    }
+
+    // Validate email format
+    let email_regex = regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+        .expect("Invalid email regex pattern");
+
+    if !email_regex.is_match(email) {
+        return Err(format!("Invalid email format: {}", email).into());
+    }
+
     info!("Starting sentence analysis for: {}", sentence);
     info!("Using email: {}", email);
 

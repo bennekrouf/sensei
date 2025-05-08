@@ -1,5 +1,5 @@
 [package]
-name = "sensei"
+name = "api0"
 version = "0.1.0"
 edition = "2021"
 
@@ -31,5 +31,5 @@ dotenv = "0.15.0"
 tonic-build = "0.12.3"
 
 [[bin]]
-name = "sensei"
+name = "api0"
 path = "src/main.rs"
