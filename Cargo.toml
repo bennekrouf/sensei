@@ -26,6 +26,7 @@ futures = "0.3.31"
 clap = { version = "4.5.30", features = ["derive"] }
 async-trait = "0.1.86"
 dotenv = "0.15.0"
+h2 = "0.4.10"
 
 [build-dependencies]
 tonic-build = "0.12.3"
