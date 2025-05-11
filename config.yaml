@@ -10,7 +10,7 @@ grpc:
 # Add our new server configuration
 server:
   address: "0.0.0.0"
-  port: 50053 # Port where your sentence gRPC server runs
+  port: 50058 # Port where your sentence gRPC server runs
 
 # Add endpoint client configuration
 endpoint_client:
