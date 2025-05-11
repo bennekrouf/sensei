@@ -108,5 +108,5 @@ grpcurl -plaintext \
 ### CLI Example
 
 ```bash
-api0 --provider claude --email user@example.com "Send an email to john@example.com with subject Hello"
+semantic --provider claude --email user@example.com "Send an email to john@example.com with subject Hello"
 ```
